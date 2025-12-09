@@ -37,6 +37,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'kripton.add_user',
+    'kripton.audit',
+    'kripton.authpage',
+    'kripton.client',
+    'kripton.dashboards',
+    'kripton.export',
+    'kripton.guide',
+    'kripton.help',
+    'kripton.history',
 ]
 
 MIDDLEWARE = [
@@ -49,7 +59,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = '1.urls'
+ROOT_URLCONF = 'kripton.urls'
 
 TEMPLATES = [
     {
@@ -66,7 +76,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = '1.wsgi.application'
+WSGI_APPLICATION = 'kripton.wsgi.application'
 
 
 # Database
@@ -120,3 +130,4 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'authpage.User'
