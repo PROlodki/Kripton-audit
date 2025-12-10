@@ -138,3 +138,9 @@ REST_FRAMEWORK = {
         'kripton.authpage.backends.JWTAuthentication',
     ),
 }
+
+# Данные для CLICKHOUSE
+CLICKHOUSE_HOST = 'localhost'
+CLICKHOUSE_USER = 'default'
+CLICKHOUSE_PASSWORD = ''
+CLICKHOUSE_DB = 'kripton'
