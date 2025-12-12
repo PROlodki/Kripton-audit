@@ -1,5 +1,5 @@
 import pandas as pd
-from .clickhouse import client
+from kripton.datasources.clickhouse import client
 
 def load_csv_to_clickhouse(file_path, table_name):
     df = pd.read_csv(file_path)

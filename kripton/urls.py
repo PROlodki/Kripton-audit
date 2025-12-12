@@ -16,10 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('kripton.authpage.urls', namespace='authpage')),
-    path('datasources/', include('datasources.urls', namespace='datasources')),
-
+    #path('datasources/', include('datasources.urls', namespace='datasources')),
+    path('login/', TemplateView.as_view(template_name="login.html"))
 ]

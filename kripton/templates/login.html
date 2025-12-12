@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авторизация</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 350px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            margin-top: 15px;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0066d6;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="login-box">
+    <h2>Вход</h2>
+
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Пароль">
+
+    <button onclick="login()">Войти</button>
+
+    <div id="message"></div>
+</div>
+
+<script>
+    async function login() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        const response = await fetch("/api/users/login/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                user: {
+                    email: email,
+                    password: password
+                }
+            })
+        });
+
+        const data = await response.json();
+        const msg = document.getElementById("message");
+
+        if (response.ok) {
+            msg.innerHTML = "<div class='success'>Успешный вход!</div>";
+
+            // Сохраняем токен — если вы его возвращаете
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+            }
+
+            // Можно сделать redirect
+            // window.location.href = "/profile/";
+        } else {
+            msg.innerHTML = "<div class='error'>" + (data.errors ? JSON.stringify(data.errors) : "Ошибка авторизации") + "</div>";
+        }
+    }
+</script>
+</body>
+</html>
