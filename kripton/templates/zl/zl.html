@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель заинтересованного лица</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Левая панель */
+        .sidebar {
+            width: 280px;
+            background-color: white;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .user-info {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .user-name {
+            font-size: 20px;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .user-role {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .sidebar-title {
+            padding: 0 20px 10px 20px;
+            font-size: 16px;
+            color: #333;
+            font-weight: bold;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 15px;
+        }
+        
+        .department-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: #555;
+            display: flex;
+            align-items: center;
+            border-left: 3px solid transparent;
+        }
+        
+        .department-item:hover {
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        
+        .department-item.active {
+            background-color: #f0f7ff;
+            color: #0066cc;
+            border-left: 3px solid #0066cc;
+        }
+        
+        .department-icon {
+            font-size: 18px;
+            margin-right: 12px;
+            width: 24px;
+            text-align: center;
+            opacity: 0; /* Скрываем цифры */
+        }
+        
+        .department-name {
+            flex: 1;
+            font-size: 15px;
+        }
+        
+        .report-count {
+            background-color: #0066cc;
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        
+        .sidebar-footer {
+            border-top: 1px solid #e0e0e0;
+            padding-top: 15px;
+            margin-top: auto;
+        }
+        
+        .account-btn, .logout-btn {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: #555;
+            display: flex;
+            align-items: center;
+            border-left: 3px solid transparent;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-size: inherit;
+        }
+        
+        .account-btn:hover, .logout-btn:hover {
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        
+        /* Основная область */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        /* Верхняя шапка */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .header-left h2 {
+            font-size: 24px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .header-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .request-btn {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .request-btn:hover {
+            background-color: #0055aa;
+        }
+        
+        /* Блок управления датами */
+        .date-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        
+        .date-controls select {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            background: white;
+            font-size: 14px;
+        }
+        
+        .today-message {
+            padding: 18px;
+            background: #fff8f0;
+            border: 1px solid #ffe4c4;
+            border-radius: 8px;
+            color: #7a4a00;
+            margin-bottom: 16px;
+        }
+        
+        /* Отчеты */
+        .reports-section {
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .reports-title {
+            font-size: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .report-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .report-nav-btn {
+            background-color: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .report-nav-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .report-nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .report-current {
+            font-weight: 500;
+            color: #333;
+            min-width: 160px;
+            text-align: center;
+        }
+        
+        .report-content {
+            margin-bottom: 25px;
+            min-height: 200px;
+        }
+        
+        /* Таблица Excel-стиль (только для чтения) */
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            border: 1px solid #c0c0c0;
+            background-color: white;
+        }
+        
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            min-width: 600px;
+        }
+        
+        .excel-table th {
+            background-color: #f0f0f0;
+            padding: 8px 12px;
+            border: 1px solid #c0c0c0;
+            color: #333;
+            font-weight: bold;
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        .excel-table td {
+            padding: 8px 12px;
+            border: 1px solid #c0c0c0;
+            text-align: center;
+            background-color: white;
+            height: 36px;
+        }
+        
+        .excel-table td.row-header {
+            background-color: #f8f8f8;
+            font-weight: 600;
+            color: #333;
+            text-align: left;
+            border-right: 2px solid #c0c0c0;
+            min-width: 150px;
+        }
+        
+        .excel-table td.header-section {
+            background-color: #e8e8e8;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
+        }
+        
+        .excel-table .data-cell {
+            font-weight: 500;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        
+        /* Диаграмма - исправленная версия */
+        .chart-container {
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .chart-wrapper {
+            height: 350px;
+            width: 100%;
+            position: relative;
+        }
+        
+        .chart-outer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chart-inner {
+            flex: 1;
+            position: relative;
+            border-left: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+            margin-left: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-y-labels {
+            position: absolute;
+            left: -40px;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            padding-right: 8px;
+        }
+        
+        .chart-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        
+        .chart-grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px dashed #eee;
+        }
+        
+        .chart-bars-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: calc(100% - 5px);
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            padding: 0 20px;
+        }
+        
+        .chart-bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 60px;
+            height: 100%;
+            position: relative;
+        }
+        
+        .chart-bars-pair {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .chart-bar {
+            width: 20px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .chart-bar-fill {
+            width: 100%;
+            border-radius: 3px 3px 0 0;
+            transition: height 0.3s ease;
+        }
+        
+        .chart-bar.permanent .chart-bar-fill {
+            background-color: #0066cc;
+        }
+        
+        .chart-bar.variable .chart-bar-fill {
+            background-color: #33cc33;
+        }
+        
+        .chart-bar-value {
+            position: absolute;
+            top: -25px; /* Изменено: подписи немного выше столбиков */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2px 4px;
+            border-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .chart-x-labels {
+            display: flex;
+            justify-content: space-around;
+            margin-left: 40px;
+            padding-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .chart-x-label {
+            width: 60px;
+            text-align: center;
+        }
+        
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        
+        /* Подпись отчета */
+        .report-signature {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .signature-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .report-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .download-btn {
+            background-color: #0066cc;
+            color: white;
+        }
+        
+        .download-btn:hover {
+            background-color: #0055aa;
+        }
+        
+        .export-btn {
+            background-color: #f8f8f8;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .export-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .report-meta {
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .report-date {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .report-author {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Модальное окно запроса отчета */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background-color: white;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            font-size: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-content {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group select,
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-secondary {
+            background-color: #f8f8f8;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        /* Пустой экран */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .empty-title {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .empty-text {
+            color: #888;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Левая панель -->
+    <div class="sidebar">
+        <div class="user-info">
+            <div class="user-name">Заинтересованное лицо</div>
+            <div class="user-role">Панель мониторинга</div>
+        </div>
+        
+        <div class="sidebar-title">Доступные подразделения</div>
+        
+        <div class="department-item active" onclick="selectDepartment('dept1')">
+            <div class="department-icon">1</div>
+            <div class="department-name">Подразделение 1</div>
+            <div class="report-count">15</div>
+        </div>
+        
+        <div class="department-item" onclick="selectDepartment('dept2')">
+            <div class="department-icon">2</div>
+            <div class="department-name">Подразделение 2</div>
+            <div class="report-count">12</div>
+        </div>
+        
+        <div class="department-item" onclick="selectDepartment('dept3')">
+            <div class="department-icon">3</div>
+            <div class="department-name">Подразделение 3</div>
+            <div class="report-count">8</div>
+        </div>
+        
+        <div class="department-item" onclick="selectDepartment('dept4')">
+            <div class="department-icon">4</div>
+            <div class="department-name">Подразделение 4</div>
+            <div class="report-count">5</div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <button class="account-btn" onclick="showAccount()">
+                Аккаунт
+            </button>
+            <button class="logout-btn" onclick="logout()">
+                Выйти
+            </button>
+        </div>
+    </div>
+    
+    <!-- Основная область -->
+    <div class="main-content">
+        <!-- Верхняя шапка -->
+        <div class="top-header">
+            <div class="header-left">
+                <h2 id="currentDepartment">Подразделение 1</h2>
+                <div class="header-subtitle">Отчеты по расходу личного состава</div>
+            </div>
+            
+            <div class="header-right">
+                <button class="request-btn" onclick="showRequestModal()">
+                    📄 Запросить новый отчет
+                </button>
+            </div>
+        </div>
+        
+        <!-- Контролы даты: показывает сначала сегодня, затем выпад. список прошлых дат -->
+        <div class="date-controls">
+            <label for="dateSelect">Показать данные за:</label>
+            <select id="dateSelect"></select>
+            <div id="todayMessage" class="today-message" style="display:none;">Сегодня данных не добавлено</div>
+        </div>
+        
+        <!-- Содержимое при выбранном подразделении -->
+        <div id="departmentContent">
+            <!-- Текущий отчет -->
+            <div class="reports-section" id="reportsSection">
+                <div class="reports-header">
+                    <div class="reports-title">Отчет по расходу личного состава</div>
+                    <div class="report-selector">
+                        <button class="report-nav-btn" onclick="prevReport()" id="prevBtn">◀ Предыдущий</button>
+                        <div class="report-current" id="reportCounter">Отчет</div>
+                        <button class="report-nav-btn" onclick="nextReport()" id="nextBtn">Следующий ▶</button>
+                    </div>
+                </div>
+                
+                <div class="report-content" id="reportContent">
+                    <!-- Динамическое содержимое будет добавлено JavaScript -->
+                </div>
+                
+                <div class="report-actions" id="reportActions" style="display:none;">
+                    <button class="action-btn download-btn" onclick="downloadReport()">
+                        📥 Скачать отчет (PDF)
+                    </button>
+                    <button class="action-btn export-btn" onclick="exportToExcel()">
+                        📊 Экспорт в Excel
+                    </button>
+                    <button class="action-btn export-btn" onclick="exportToWord()">
+                        📝 Экспорт в Word
+                    </button>
+                </div>
+                
+                <div class="report-meta" id="reportMeta" style="display:none;">
+                    <div class="report-date">
+                        <span>📅</span>
+                        <span id="reportDateText"></span>
+                    </div>
+                    <div class="report-author">
+                        <span>👤</span>
+                        <span id="reportAuthorText"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Диаграмма изменения расхода -->
+            <div class="chart-container">
+                <div class="chart-title">Изменение расхода личного состава за последний месяц</div>
+                <div id="chartContainer" class="chart-wrapper">
+                    <!-- Диаграмма будет отрисована JavaScript -->
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #0066cc;"></div>
+                        <span>Постоянный состав</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #33cc33;"></div>
+                        <span>Переменный состав</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Пустой экран при отсутствии подразделений -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📁</div>
+            <div class="empty-title">Нет доступных подразделений</div>
+            <div class="empty-text">Администратор еще не предоставил доступ к отчетам ни одного подразделения. Обратитесь к администратору для получения доступа.</div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно запроса отчета -->
+    <div class="modal-overlay" id="requestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Запрос нового отчета</h3>
+                <button class="close-modal" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="form-group">
+                    <label>Подразделение</label>
+                    <select id="requestDepartment">
+                        <option value="dept1">Подразделение 1</option>
+                        <option value="dept2">Подразделение 2</option>
+                        <option value="dept3">Подразделение 3</option>
+                        <option value="dept4">Подразделение 4</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Название отчета</label>
+                    <input type="text" id="requestTitle" placeholder="Например: Отчет за декабрь 2024">
+                </div>
+                
+                .form-group textarea {
+                    min-height: 100px;
+                    resize: vertical;
+                }
+                
+                .modal-footer {
+                    padding: 15px 20px;
+                    border-top: 1px solid #e0e0e0;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 10px;
+                }
+                
+                .btn-primary {
+                    background-color: #0066cc;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: 500;
+                }
+                
+                .btn-secondary {
+                    background-color: #f8f8f8;
+                    color: #333;
+                    border: 1px solid #e0e0e0;
+                    padding: 10px 20px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+                
+                /* Пустой экран */
+                .empty-state {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 60px 20px;
+                    text-align: center;
+                }
+                
+                .empty-icon {
+                    font-size: 48px;
+                    color: #ccc;
+                    margin-bottom: 20px;
+                }
+                
+                .empty-title {
+                    font-size: 20px;
+                    color: #666;
+                    margin-bottom: 10px;
+                    font-weight: 500;
+                }
+                
+                .empty-text {
+                    color: #888;
+                    max-width: 400px;
+                    line-height: 1.5;
+                }
+            </style>
+        </head>
+        <body>
+            <!-- Левая панель -->
+            <div class="sidebar">
+                <div class="user-info">
+                    <div class="user-name">Заинтересованное лицо</div>
+                    <div class="user-role">Панель мониторинга</div>
+                </div>
+                
+                <div class="sidebar-title">Доступные подразделения</div>
+                
+                <div class="department-item active" onclick="selectDepartment('dept1')">
+                    <div class="department-icon">1</div>
+                    <div class="department-name">Подразделение 1</div>
+                    <div class="report-count">15</div>
+                </div>
+                
+                <div class="department-item" onclick="selectDepartment('dept2')">
+                    <div class="department-icon">2</div>
+                    <div class="department-name">Подразделение 2</div>
+                    <div class="report-count">12</div>
+                </div>
+                
+                <div class="department-item" onclick="selectDepartment('dept3')">
+                    <div class="department-icon">3</div>
+                    <div class="department-name">Подразделение 3</div>
+                    <div class="report-count">8</div>
+                </div>
+                
+                <div class="department-item" onclick="selectDepartment('dept4')">
+                    <div class="department-icon">4</div>
+                    <div class="department-name">Подразделение 4</div>
+                    <div class="report-count">5</div>
+                </div>
+                
+                <div class="sidebar-footer">
+                    <button class="account-btn" onclick="showAccount()">
+                        Аккаунт
+                    </button>
+                    <button class="logout-btn" onclick="logout()">
+                        Выйти
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Основная область -->
+            <div class="main-content">
+                <!-- Верхняя шапка -->
+                <div class="top-header">
+                    <div class="header-left">
+                        <h2 id="currentDepartment">Подразделение 1</h2>
+                        <div class="header-subtitle">Отчеты по расходу личного состава</div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <button class="request-btn" onclick="showRequestModal()">
+                            📄 Запросить новый отчет
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Контролы даты: показывает сначала сегодня, затем выпад. список прошлых дат -->
+                <div class="date-controls">
+                    <label for="dateSelect">Показать данные за:</label>
+                    <select id="dateSelect"></select>
+                    <div id="todayMessage" class="today-message" style="display:none;">Сегодня данных не добавлено</div>
+                </div>
+                
+                <!-- Содержимое при выбранном подразделении -->
+                <div id="departmentContent">
+                    <!-- Текущий отчет -->
+                    <div class="reports-section" id="reportsSection">
+                        <div class="reports-header">
+                            <div class="reports-title">Отчет по расходу личного состава</div>
+                            <div class="report-selector">
+                                <button class="report-nav-btn" onclick="prevReport()" id="prevBtn">◀ Предыдущий</button>
+                                <div class="report-current" id="reportCounter">Отчет</div>
+                                <button class="report-nav-btn" onclick="nextReport()" id="nextBtn">Следующий ▶</button>
+                            </div>
+                        </div>
+                        
+                        <div class="report-content" id="reportContent">
+                            <!-- Динамическое содержимое будет добавлено JavaScript -->
+                        </div>
+                        
+                        <div class="report-actions" id="reportActions" style="display:none;">
+                            <button class="action-btn download-btn" onclick="downloadReport()">
+                                📥 Скачать отчет (PDF)
+                            </button>
+                            <button class="action-btn export-btn" onclick="exportToExcel()">
+                                📊 Экспорт в Excel
+                            </button>
+                            <button class="action-btn export-btn" onclick="exportToWord()">
+                                📝 Экспорт в Word
+                            </button>
+                        </div>
+                        
+                        <div class="report-meta" id="reportMeta" style="display:none;">
+                            <div class="report-date">
+                                <span>📅</span>
+                                <span id="reportDateText"></span>
+                            </div>
+                            <div class="report-author">
+                                <span>👤</span>
+                                <span id="reportAuthorText"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Диаграмма изменения расхода -->
+                    <div class="chart-container">
+                        <div class="chart-title">Изменение расхода личного состава за последний месяц</div>
+                        <div id="chartContainer" class="chart-wrapper">
+                            <!-- Диаграмма будет отрисована JavaScript -->
+                        </div>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #0066cc;"></div>
+                                <span>Постоянный состав</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #33cc33;"></div>
+                                <span>Переменный состав</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Пустой экран при отсутствии подразделений -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📁</div>
+                    <div class="empty-title">Нет доступных подразделений</div>
+                    <div class="empty-text">Администратор еще не предоставил доступ к отчетам ни одного подразделения. Обратитесь к администратору для получения доступа.</div>
+                </div>
+            </div>
+            
+            <!-- Модальное окно запроса отчета -->
+            <div class="modal-overlay" id="requestModal">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Запрос нового отчета</h3>
+                        <button class="close-modal" onclick="closeModal()">×</button>
+                    </div>
+                    <div class="modal-content">
+                        <div class="form-group">
+                            <label>Подразделение</label>
+                            <select id="requestDepartment">
+                                <option value="dept1">Подразделение 1</option>
+                                <option value="dept2">Подразделение 2</option>
+                                <option value="dept3">Подразделение 3</option>
+                                <option value="dept4">Подразделение 4</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Название отчета</label>
+                            <input type="text" id="requestTitle" placeholder="Например: Отчет за декабрь 2024">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Описание требуемых данных</label>
+                            <textarea id="requestDescription" placeholder="Опишите, какие данные должны быть включены в отчет..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Срок выполнения (по желанию)</label>
+                            <input type="date" id="requestDeadline">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+                        <button class="btn-primary" onclick="submitRequest()">Отправить запрос</button>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                // --------------------------
+                // Пример данных (в реальном приложении данные придут с сервера)
+                // --------------------------
+                const reportsData = [
+                    { 
+                        id: 1, 
+                        department: 'dept1', 
+                        title: 'Отчет по расходу личного состава за 01.12.2024', 
+                        dateISO: '2024-12-01', 
+                        author: 'Ответственный Пользователь 1',
+                        tableData: {
+                            permanent: {
+                                onList: 150,
+                                present: 145,
+                                duty: 3,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            },
+                            variable: {
+                                onList: 200,
+                                present: 195,
+                                duty: 4,
+                                businessTrip: 1,
+                                sick: 0,
+                                hospital: 0
+                            }
+                        }
+                    },
+                    { 
+                        id: 2, 
+                        department: 'dept1', 
+                        title: 'Отчет по расходу личного состава за 28.11.2024', 
+                        dateISO: '2024-11-28', 
+                        author: 'Ответственный Пользователь 1',
+                        tableData: {
+                            permanent: {
+                                onList: 148,
+                                present: 142,
+                                duty: 4,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            },
+                            variable: {
+                                onList: 198,
+                                present: 190,
+                                duty: 6,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            }
+                        }
+                    },
+                    { 
+                        id: 3, 
+                        department: 'dept1', 
+                        title: 'Отчет по расходу личного состава за 25.11.2024', 
+                        dateISO: '2024-11-25', 
+                        author: 'Ответственный Пользователь 1',
+                        tableData: {
+                            permanent: {
+                                onList: 152,
+                                present: 148,
+                                duty: 2,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            },
+                            variable: {
+                                onList: 205,
+                                present: 200,
+                                duty: 3,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            }
+                        }
+                    },
+                    { 
+                        id: 4, 
+                        department: 'dept2', 
+                        title: 'Отчет по расходу личного состава за 01.12.2024', 
+                        dateISO: '2024-12-01', 
+                        author: 'Ответственный Пользователь 2',
+                        tableData: {
+                            permanent: {
+                                onList: 120,
+                                present: 115,
+                                duty: 3,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            },
+                            variable: {
+                                onList: 180,
+                                present: 175,
+                                duty: 4,
+                                businessTrip: 1,
+                                sick: 0,
+                                hospital: 0
+                            }
+                        }
+                    },
+                    // Добавим пару старых дат
+                    { 
+                        id: 5, 
+                        department: 'dept1', 
+                        title: 'Отчет по расходу личного состава за 15.11.2024', 
+                        dateISO: '2024-11-15', 
+                        author: 'Ответственный Пользователь 1',
+                        tableData: {
+                            permanent: {
+                                onList: 155,
+                                present: 150,
+                                duty: 3,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            },
+                            variable: {
+                                onList: 210,
+                                present: 205,
+                                duty: 3,
+                                businessTrip: 2,
+                                sick: 0,
+                                hospital: 0
+                            }
+                        }
+                    }
+                ];
+
+                // Данные для диаграммы (динамика за последний месяц)
+                const chartData = {
+                    'dept1': {
+                        dates: ['01.11', '05.11', '10.11', '15.11', '20.11', '25.11', '28.11', '01.12'],
+                        permanent: [145, 147, 150, 155, 152, 148, 142, 145],
+                        variable: [195, 200, 205, 210, 205, 200, 190, 195]
+                    },
+                    'dept2': {
+                        dates: ['01.11', '05.11', '10.11', '15.11', '20.11', '25.11', '28.11', '01.12'],
+                        permanent: [110, 112, 115, 118, 120, 118, 117, 115],
+                        variable: [170, 175, 180, 182, 185, 182, 178, 175]
+                    },
+                    'dept3': {
+                        dates: ['01.11', '05.11', '10.11', '15.11', '20.11', '25.11', '28.11', '01.12'],
+                        permanent: [90, 92, 95, 98, 100, 98, 97, 95],
+                        variable: [150, 152, 155, 158, 160, 158, 157, 155]
+                    },
+                    'dept4': {
+                        dates: ['01.11', '05.11', '10.11', '15.11', '20.11', '25.11', '28.11', '01.12'],
+                        permanent: [70, 72, 75, 78, 80, 78, 77, 75],
+                        variable: [120, 122, 125, 128, 130, 128, 127, 125]
+                    }
+                };
+
+                // Переменные состояния
+                let currentDepartment = 'dept1';
+                let selectedDateISO = null; // выбранная дата (ISO)
+                let reportsForDate = [];
+                let currentReportIndex = 0; // индекс внутри reportsForDate
+
+                // Утилиты даты
+                function isoToDisplay(iso) {
+                    const d = new Date(iso + 'T00:00:00');
+                    return d.toLocaleDateString('ru-RU');
+                }
+
+                function todayISO() {
+                    const d = new Date();
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth()+1).padStart(2,'0');
+                    const day = String(d.getDate()).padStart(2,'0');
+                    return `${y}-${m}-${day}`;
+                }
+
+                // Инициализация списка дат в селекте: сегодня + уникальные даты из reportsData (последние 30 дней)
+                function populateDateSelect() {
+                    const select = document.getElementById('dateSelect');
+                    select.innerHTML = '';
+
+                    const isoToday = todayISO();
+
+                    // Соберём уникальные даты из данных для текущего подразделения
+                    const datesSet = new Set();
+                    reportsData.forEach(r => { 
+                        if (r.department === currentDepartment) datesSet.add(r.dateISO); 
+                    });
+
+                    // Создадим массив дат: сегодня (первый пункт), затем список уникальных дат отсортированных по убыванию
+                    const dates = [isoToday];
+                    const otherDates = Array.from(datesSet).sort((a,b)=> b.localeCompare(a));
+                    otherDates.forEach(d => { 
+                        if (d !== isoToday) dates.push(d); 
+                    });
+
+                    // Добавим опции в селект
+                    dates.forEach((iso, idx) => {
+                        const opt = document.createElement('option');
+                        if (iso === isoToday) opt.textContent = `Сегодня — ${isoToDisplay(iso)}`;
+                        else opt.textContent = isoToDisplay(iso);
+                        opt.value = iso;
+                        select.appendChild(opt);
+                    });
+
+                    // Установим выбранную дату по умолчанию — сегодня
+                    select.value = isoToday;
+                    selectedDateISO = isoToday;
+                    select.onchange = onDateChange;
+                }
+
+                function onDateChange(e) {
+                    selectedDateISO = e.target.value;
+                    loadReportsForSelectedDate();
+                }
+
+                function loadReportsForSelectedDate() {
+                    // Фильруем данные по подразделению и дате
+                    reportsForDate = reportsData.filter(r => r.department === currentDepartment && r.dateISO === selectedDateISO);
+
+                    // Если дата — сегодня и нет данных вообще, показываем сообщение
+                    const isoToday = todayISO();
+                    const todayHasAny = reportsData.some(r => r.department === currentDepartment && r.dateISO === isoToday);
+                    const todayMessageEl = document.getElementById('todayMessage');
+                    if (selectedDateISO === isoToday && !todayHasAny) {
+                        todayMessageEl.style.display = 'block';
+                    } else {
+                        todayMessageEl.style.display = 'none';
+                    }
+
+                    if (reportsForDate.length === 0) {
+                        // Показываем пустой экран внутри области отчёта
+                        document.getElementById('reportContent').innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">За выбранную дату данных не найдено</div><div class="empty-text">Попробуйте выбрать другую дату или отправьте запрос на новый отчет.</div></div>`;
+                        document.getElementById('reportActions').style.display = 'none';
+                        document.getElementById('reportMeta').style.display = 'none';
+                        document.getElementById('reportCounter').textContent = '';
+                        document.getElementById('prevBtn').disabled = true;
+                        document.getElementById('nextBtn').disabled = true;
+                        
+                        // Очищаем диаграмму
+                        document.getElementById('chartContainer').innerHTML = '<div class="empty-text" style="text-align: center; padding: 40px;">Нет данных для построения диаграммы</div>';
+                        return;
+                    }
+
+                    // Сбрасываем текущий индекс и отображаем первый отчёт
+                    currentReportIndex = 0;
+                    updateReportNavigation();
+                    renderCurrentReport();
+                    renderChart();
+                }
+
+                function renderCurrentReport() {
+                    if (!reportsForDate || reportsForDate.length === 0) return;
+                    const rep = reportsForDate[currentReportIndex];
+                    const contentEl = document.getElementById('reportContent');
+
+                    // Генерируем HTML для таблицы отчета
+                    let html = `<h3>${rep.title}</h3>`;
+                    
+                    html += `
+                    <div class="table-container">
+                        <table class="excel-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th class="header-section">Постоянный состав</th>
+                                    <th></th>
+                                    <th class="header-section">Переменный состав</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- По списку -->
+                                <tr>
+                                    <td class="row-header">По списку</td>
+                                    <td class="data-cell">${rep.tableData.permanent.onList}</td>
+                                    <td class="row-header">По списку</td>
+                                    <td class="data-cell">${rep.tableData.variable.onList}</td>
+                                </tr>
+                                
+                                <!-- Налицо -->
+                                <tr>
+                                    <td class="row-header">Налицо</td>
+                                    <td class="data-cell">${rep.tableData.permanent.present}</td>
+                                    <td class="row-header">Налицо</td>
+                                    <td class="data-cell">${rep.tableData.variable.present}</td>
+                                </tr>
+                                
+                                <!-- Наряд -->
+                                <tr>
+                                    <td class="row-header">Наряд</td>
+                                    <td class="data-cell">${rep.tableData.permanent.duty}</td>
+                                    <td class="row-header">Наряд</td>
+                                    <td class="data-cell">${rep.tableData.variable.duty}</td>
+                                </tr>
+                                
+                                <!-- Командировка -->
+                                <tr>
+                                    <td class="row-header">Командировка</td>
+                                    <td class="data-cell">${rep.tableData.permanent.businessTrip}</td>
+                                    <td class="row-header">Командировка</td>
+                                    <td class="data-cell">${rep.tableData.variable.businessTrip}</td>
+                                </tr>
+                                
+                                <!-- Болен -->
+                                <tr>
+                                    <td class="row-header">Болен</td>
+                                    <td class="data-cell">${rep.tableData.permanent.sick}</td>
+                                    <td class="row-header">Болен</td>
+                                    <td class="data-cell">${rep.tableData.variable.sick}</td>
+                                </tr>
+                                
+                                <!-- Лазарет -->
+                                <tr>
+                                    <td class="row-header">Лазарет</td>
+                                    <td class="data-cell">${rep.tableData.permanent.hospital}</td>
+                                    <td class="row-header">Лазарет</td>
+                                    <td class="data-cell">${rep.tableData.variable.hospital}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="report-signature">
+                        <div class="signature-line">
+                            <span>📅</span>
+                            <span><strong>Данные отправлены:</strong> ${rep.dateISO} 14:30</span>
+                        </div>
+                        <div class="signature-line">
+                            <span>👤</span>
+                            <span><strong>Отправитель:</strong> ${rep.author}</span>
+                        </div>
+                    </div>
+                    `;
+
+                    contentEl.innerHTML = html;
+
+                    // Показать действия и мета
+                    document.getElementById('reportActions').style.display = 'flex';
+                    document.getElementById('reportMeta').style.display = 'block';
+                    document.getElementById('reportDateText').innerHTML = `<strong>Дата и время добавления:</strong> ${isoToDisplay(rep.dateISO)} 14:30`;
+                    document.getElementById('reportAuthorText').innerHTML = `<strong>Автор отчета:</strong> ${rep.author}`;
+                }
+
+                // Отрисовка диаграммы - исправленная версия
+                function renderChart() {
+                    const chartContainer = document.getElementById('chartContainer');
+                    const data = chartData[currentDepartment];
+                    
+                    if (!data) {
+                        chartContainer.innerHTML = '<div class="empty-text" style="text-align: center; padding: 40px;">Нет данных для построения диаграммы</div>';
+                        return;
+                    }
+                    
+                    const maxValue = Math.max(...data.permanent, ...data.variable);
+                    const availableHeight = 250; // Высота области для столбцов
+                    
+                    let html = `
+                    <div class="chart-outer">
+                        <div class="chart-inner">
+                            <div class="chart-y-labels">
+                                <span>${maxValue}</span>
+                                <span>${Math.round(maxValue * 0.75)}</span>
+                                <span>${Math.round(maxValue * 0.5)}</span>
+                                <span>${Math.round(maxValue * 0.25)}</span>
+                                <span>0</span>
+                            </div>
+                            
+                            <div class="chart-grid">
+                                <div class="chart-grid-line" style="top: 0%"></div>
+                                <div class="chart-grid-line" style="top: 25%"></div>
+                                <div class="chart-grid-line" style="top: 50%"></div>
+                                <div class="chart-grid-line" style="top: 75%"></div>
+                                <div class="chart-grid-line" style="top: 100%"></div>
+                            </div>
+                            
+                            <div class="chart-bars-container">
+                    `;
+                    
+                    // Создаем пары столбцов для каждой даты
+                    data.dates.forEach((date, index) => {
+                        const permanentValue = data.permanent[index];
+                        const variableValue = data.variable[index];
+                        
+                        const permanentHeight = (permanentValue / maxValue) * availableHeight;
+                        const variableHeight = (variableValue / maxValue) * availableHeight;
+                        
+                        html += `
+                        <div class="chart-bar-group">
+                            <div class="chart-bars-pair">
+                                <div class="chart-bar permanent">
+                                    <div class="chart-bar-fill" style="height: ${permanentHeight}px;"></div>
+                                    <div class="chart-bar-value">${permanentValue}</div>
+                                </div>
+                                <div class="chart-bar variable">
+                                    <div class="chart-bar-fill" style="height: ${variableHeight}px;"></div>
+                                    <div class="chart-bar-value">${variableValue}</div>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                        
+                        <div class="chart-x-labels">
+                    `;
+                    
+                    // Добавляем подписи по оси X
+                    data.dates.forEach(date => {
+                        html += `<div class="chart-x-label">${date}</div>`;
+                    });
+                    
+                    html += `</div></div>`;
+                    
+                    chartContainer.innerHTML = html;
+                }
+
+                // Навигация
+                function prevReport() {
+                    if (currentReportIndex > 0) {
+                        currentReportIndex--;
+                        updateReportNavigation();
+                        renderCurrentReport();
+                    }
+                }
+
+                function nextReport() {
+                    if (currentReportIndex < reportsForDate.length - 1) {
+                        currentReportIndex++;
+                        updateReportNavigation();
+                        renderCurrentReport();
+                    }
+                }
+
+                function updateReportNavigation() {
+                    document.getElementById('reportCounter').textContent = `Отчет #${currentReportIndex + 1} из ${reportsForDate.length}`;
+                    document.getElementById('prevBtn').disabled = currentReportIndex <= 0;
+                    document.getElementById('nextBtn').disabled = currentReportIndex >= reportsForDate.length - 1;
+                }
+
+                // Подразделение
+                function selectDepartment(dept) {
+                    document.querySelectorAll('.department-item').forEach(item => item.classList.remove('active'));
+                    event.target.closest('.department-item').classList.add('active');
+                    currentDepartment = dept;
+                    const deptNames = { 
+                        'dept1': 'Подразделение 1', 
+                        'dept2': 'Подразделение 2', 
+                        'dept3': 'Подразделение 3', 
+                        'dept4': 'Подразделение 4' 
+                    };
+                    document.getElementById('currentDepartment').textContent = deptNames[dept];
+                    populateDateSelect();
+                    loadReportsForSelectedDate();
+                    renderChart();
+                }
+
+                // Действия с отчётом (заглушки)
+                function downloadReport() { 
+                    alert(`Отчет "${reportsForDate[currentReportIndex].title}" скачивается в формате PDF`); 
+                }
+                
+                function exportToExcel() { 
+                    alert(`Отчет "${reportsForDate[currentReportIndex].title}" экспортируется в Excel`); 
+                }
+                
+                function exportToWord() { 
+                    alert(`Отчет "${reportsForDate[currentReportIndex].title}" экспортируется в Word`); 
+                }
+
+                // Модальное окно и прочее
+                function showRequestModal() { 
+                    document.getElementById('requestModal').classList.add('active'); 
+                }
+                
+                function closeModal() { 
+                    document.getElementById('requestModal').classList.remove('active'); 
+                }
+                
+                function submitRequest() {
+                    const department = document.getElementById('requestDepartment').value;
+                    const title = document.getElementById('requestTitle').value;
+                    const description = document.getElementById('requestDescription').value;
+                    const deadline = document.getElementById('requestDeadline').value;
+                    
+                    if (!title.trim()) { 
+                        alert('Пожалуйста, укажите название отчета'); 
+                        return; 
+                    }
+                    
+                    if (!description.trim()) { 
+                        alert('Пожалуйста, опишите требуемые данные'); 
+                        return; 
+                    }
+                    
+                    alert('Запрос на новый отчет отправлен администратору');
+                    closeModal();
+                    document.getElementById('requestTitle').value = '';
+                    document.getElementById('requestDescription').value = '';
+                    document.getElementById('requestDeadline').value = '';
+                }
+
+                function showAccount() { 
+                    alert('Открытие настроек аккаунта'); 
+                }
+                
+                function logout() { 
+                    if (confirm('Вы уверены, что хотите выйти?')) { 
+                        alert('Выход из системы...'); 
+                    } 
+                }
+
+                // Инициализация
+                document.addEventListener('DOMContentLoaded', function() {
+                    populateDateSelect();
+                    loadReportsForSelectedDate();
+                    renderChart();
+                });
+            </script>
+        </body>
+        </html>
