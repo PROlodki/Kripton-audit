@@ -113,7 +113,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         payload = {
             'id': self.pk,
-            'exp': dt,  # ✔ Можно передать datetime, PyJWT сам конвертирует
+            'exp': dt,  # Можно передать datetime, PyJWT сам конвертирует
         }
 
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')

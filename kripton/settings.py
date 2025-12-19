@@ -31,13 +31,17 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    'kripton',
+    'kripton', # если удалить не работает?
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'kripton.authpage',
+    'kripton.client',
+    'kripton.guide',
 ]
 
 MIDDLEWARE = [
@@ -48,7 +52,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'kripton.middleware.JWTMiddleware',
+
+    #'kripton.middleware.JWTMiddleware',
 ]
 
 ROOT_URLCONF = 'kripton.urls'
@@ -117,6 +122,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'authpage.User'
+REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'kripton.exceptions.core_exception_handler',
+    'NON_FIELD_ERRORS_KEY': 'error',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'kripton.authpage.backends.JWTAuthentication',
+    ),
+}
+
 
 JWT_SECRET = 'KrIpToNuK7fP9Qm3ZsA1xR8tV4nW2yH6bJ0cL5dE9'
 JWT_ALGO = 'HS256'

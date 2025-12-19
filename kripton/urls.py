@@ -4,7 +4,8 @@ from .views import index, admin, zl, user
 
 urlpatterns = [
     path('auth/', index, name='index'),
-    path('admin/', admin, name='admin'), 
-    path('zl/', zl, name='zl'), 
+    path('api/', include('kripton.authpage.urls', namespace='authpage')),
+    path('admin/', admin, name='admin'),
+    path('zl/', zl, name='zl'),
     path('user/', user, name='user'),
 ]
