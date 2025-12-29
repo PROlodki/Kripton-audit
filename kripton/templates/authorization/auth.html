@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kripton — Авторизация</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+    .login-container {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        width: 300px;
+        text-align: center;
+    }
+    .login-container h1 {
+        margin-bottom: 30px;
+        font-size: 24px;
+    }
+    .login-container input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+    }
+    .login-container button {
+        width: 100%;
+        padding: 10px;
+        background-color: #000;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 10px;
+    }
+    .login-container button:hover {
+        background-color: #333;
+    }
+    .error { color: red; margin-top: 10px; }
+    .success { color: green; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div class="login-container">
+    <h1>Kripton</h1>
+
+    <input type="text" id="email" placeholder="Логин" required>
+    <input type="password" id="password" placeholder="Пароль" required>
+
+    <button type="button" onclick="login()">Войти</button>
+
+    <div id="message"></div>
+</div>
+
+<script>
+async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const msg = document.getElementById("message");
+    msg.innerHTML = "";
+
+    try {
+        // Отправляем POST-запрос к DRF LoginAPIView
+        const response = await fetch("/api/users/login/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user: { email, password } })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+
+            msg.innerHTML = "<div class='success'>Успешный вход!</div>";
+
+            // редирект по роли (если есть) или на тестовую страницу
+            const role = data.role || "user";  // если базы пока нет
+            window.location.href = "/" + role + "/";
+
+        } else {
+            // пытаемся получить ошибку из JSON
+            let data;
+            try { data = await response.json(); } catch(e){ data = {}; }
+            msg.innerHTML = "<div class='error'>" + (data.error || "Ошибка авторизации") + "</div>";
+        }
+
+    } catch (e) {
+        msg.innerHTML = "<div class='error'>Ошибка соединения с сервером</div>";
+        console.error("Fetch error:", e);
+    }
+}
+</script>
+
+</body>
+</html>
