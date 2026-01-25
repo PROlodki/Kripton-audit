@@ -53,7 +53,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    #'kripton.middleware.JWTMiddleware',
+    'kripton.middleware.JWTMiddleware',
 ]
 
 ROOT_URLCONF = 'kripton.urls'

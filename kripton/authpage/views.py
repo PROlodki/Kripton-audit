@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from .renders import UserJSONRender
 from .serializers import (
-    LoginSerializer, RegistrationSerializer, UserSerializer,
+    LoginSerializer, RegistrationSerializer, UserSerializer, RefreshTokenSerializer,
 )
 
 
@@ -45,6 +45,33 @@ class LoginAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RefreshTokenAPIView(APIView):
+    """
+    Эндпоинт для обновления access токена с помощью refresh токена.
+    Разрешен доступ всем пользователям (не требует аутентификации).
+    """
+    permission_classes = (AllowAny,)
+    renderer_classes = (UserJSONRender,)
+    serializer_class = RefreshTokenSerializer
+
+    def post(self, request):
+        """
+        Принимает refresh_token и возвращает новый access token и новый refresh token.
+        Старый refresh token отзывается после использования.
+        """
+        data = request.data.get('user', {})
+        
+        serializer = self.serializer_class(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Возвращаем данные с переименованием refresh_token_new в refresh_token
+        response_data = serializer.validated_data.copy()
+        response_data['refresh_token'] = response_data.pop('refresh_token_new')
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
 class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
     permission_classes = (IsAuthenticated,)

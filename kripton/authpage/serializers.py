@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import User
+from .models import User, RefreshToken
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -17,12 +17,13 @@ class RegistrationSerializer(serializers.ModelSerializer):
     # Клиентская сторона не должна иметь возможность отправлять токен вместе с
     # запросом на регистрацию. Сделаем его доступным только на чтение.
     token = serializers.CharField(max_length=255, read_only=True)
+    refresh_token = serializers.CharField(max_length=255, read_only=True)
 
     class Meta:
         model = User
         # Перечислить все поля, которые могут быть включены в запрос
         # или ответ, включая поля, явно указанные выше.
-        fields = ['email', 'username', 'password', 'token']
+        fields = ['email', 'username', 'password', 'token', 'refresh_token', 'role']
 
     def create(self, validated_data):
         # Использовать метод create_user, который мы
@@ -35,6 +36,8 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=255, read_only=True)
     password = serializers.CharField(max_length=128, write_only=True)
     token = serializers.CharField(max_length=255, read_only=True)
+    refresh_token = serializers.CharField(max_length=255, read_only=True)
+    role = serializers.CharField(max_length=10, read_only=True)
 
     def validate(self, data):
         # В методе validate мы убеждаемся, что текущий экземпляр
@@ -82,7 +85,9 @@ class LoginSerializer(serializers.Serializer):
         return {
             'email': user.email,
             'username': user.username,
-            'token': user.token
+            'token': user.token,
+            'refresh_token': user.refresh_token,
+            'role': user.role
         }
 
 class UserSerializer(serializers.ModelSerializer):
@@ -99,7 +104,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'username', 'password', 'token',)
+        fields = ('email', 'username', 'password', 'token', 'refresh_token', 'role',)
 
         # Параметр read_only_fields является альтернативой явному указанию поля
         # с помощью read_only = True, как мы это делали для пароля выше.
@@ -107,7 +112,7 @@ class UserSerializer(serializers.ModelSerializer):
         # состоит в том, что нам не нужно ничего указывать о поле. В поле
         # пароля требуются свойства min_length и max_length,
         # но это не относится к полю токена.
-        read_only_fields = ('token',)
+        read_only_fields = ('token', 'refresh_token',)
 
     def update(self, instance, validated_data):
         """ Выполняет обновление User. """
@@ -133,3 +138,53 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    """Сериализатор для обновления access токена с помощью refresh токена"""
+    refresh_token = serializers.CharField(max_length=255, write_only=True)
+    token = serializers.CharField(max_length=255, read_only=True)
+    refresh_token_new = serializers.CharField(max_length=255, read_only=True)
+
+    def validate(self, data):
+        """
+        Проверяет валидность refresh токена и возвращает новые токены.
+        """
+        refresh_token_value = data.get('refresh_token', None)
+
+        if refresh_token_value is None:
+            raise serializers.ValidationError(
+                'Refresh token is required.'
+            )
+
+        try:
+            refresh_token = RefreshToken.objects.get(
+                token=refresh_token_value,
+                is_revoked=False
+            )
+        except RefreshToken.DoesNotExist:
+            raise serializers.ValidationError(
+                'Invalid refresh token.'
+            )
+
+        if not refresh_token.is_valid():
+            raise serializers.ValidationError(
+                'Refresh token has expired or been revoked.'
+            )
+
+        user = refresh_token.user
+
+        if not user.is_active:
+            raise serializers.ValidationError(
+                'This user has been deactivated.'
+            )
+
+        # Отзываем использованный refresh токен
+        refresh_token.is_revoked = True
+        refresh_token.save()
+
+        # Генерируем новые токены
+        return {
+            'token': user.token,
+            'refresh_token_new': user.refresh_token
+        }

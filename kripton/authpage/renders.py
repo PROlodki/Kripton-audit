@@ -17,6 +17,7 @@ class UserJSONRender(JSONRenderer):
         # объект. Байтовые объекты плохо сериализуются, поэтому нам нужно
         # декодировать их перед рендерингом объекта User.
         token = data.get('token', None)
+        refresh_token = data.get('refresh_token', None)
 
         if errors is not None:
             # Позволим стандартному JSONRenderer обрабатывать ошибку.
@@ -25,6 +26,10 @@ class UserJSONRender(JSONRenderer):
         if token is not None and isinstance(token, bytes):
             # Как говорится выше, декодирует token если он имеет тип bytes.
             data['token'] = token.decode('utf-8')
+
+        if refresh_token is not None and isinstance(refresh_token, bytes):
+            # Декодирует refresh_token если он имеет тип bytes.
+            data['refresh_token'] = refresh_token.decode('utf-8')
 
         # Наконец, мы можем отобразить наши данные в простанстве имен 'user'.
         return json.dumps({

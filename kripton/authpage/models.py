@@ -1,5 +1,6 @@
 from django.db import models
 import jwt
+import secrets
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth.models import (
@@ -35,6 +36,48 @@ class UserManager(BaseUserManager):
 
         return user
 
+
+class RefreshToken(models.Model):
+    """Модель для хранения refresh токенов"""
+    user = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='refresh_tokens'
+    )
+    token = models.CharField(max_length=255, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_revoked = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'refresh_tokens'
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['user', 'is_revoked']),
+        ]
+
+    def __str__(self):
+        return f"RefreshToken for {self.user.email}"
+
+    def is_valid(self):
+        """Проверяет, действителен ли токен"""
+        return not self.is_revoked and datetime.utcnow() < self.expires_at
+
+    @classmethod
+    def create_for_user(cls, user, days=30):
+        """Создает новый refresh токен для пользователя"""
+        # Генерируем случайный токен
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(days=days)
+        
+        refresh_token = cls.objects.create(
+            user=user,
+            token=token,
+            expires_at=expires_at
+        )
+        return refresh_token
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     # Каждому пользователю нужен понятный человеку уникальный идентификатор,
     # который мы можем использовать для предоставления User в пользовательском
@@ -66,6 +109,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Временная метка показывающая время последнего обновления объекта.
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Роль пользователя: admin, zl, user
+    ROLE_CHOICES = [
+        ('admin', 'Администратор'),
+        ('zl', 'ZL'),
+        ('user', 'Пользователь'),
+    ]
+    role = models.CharField(
+        max_length=10,
+        choices=ROLE_CHOICES,
+        default='user',
+        db_index=True,
+        help_text='Роль пользователя определяет доступ к различным разделам системы'
+    )
+
     # Дополнительный поля, необходимые Django
     # при указании кастомной модели пользователя.
 
@@ -89,7 +146,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         user._generate_jwt_token(). Декоратор @property выше делает это
         возможным. token называется "динамическим свойством".
         """
-        return self._generate_jwt_token()
+        return self._generate_access_token()
+
+    @property
+    def refresh_token(self):
+        """
+        Создает и возвращает новый refresh токен для пользователя.
+        """
+        return self._generate_refresh_token()
 
     def get_full_name(self):
         """
@@ -103,16 +167,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         """ Аналогично методу get_full_name(). """
         return self.username
 
-    def _generate_jwt_token(self):
+    def _generate_access_token(self):
         """
-        Генерирует веб-токен JSON, в котором хранится идентификатор этого
+        Генерирует access токен (JWT), в котором хранится идентификатор этого
         пользователя. Срок действия токена — 1 день.
         """
-
         dt = datetime.utcnow() + timedelta(days=1)
 
         payload = {
             'id': self.pk,
+            'type': 'access',
+            'role': self.role,  # Включаем роль в токен
             'exp': dt,  # Можно передать datetime, PyJWT сам конвертирует
         }
 
@@ -123,3 +188,15 @@ class User(AbstractBaseUser, PermissionsMixin):
             token = token.decode('utf-8')
 
         return token
+
+    def _generate_refresh_token(self):
+        """
+        Создает и возвращает новый refresh токен для пользователя.
+        Срок действия refresh токена — 30 дней.
+        """
+        # Отзываем старые токены пользователя (опционально, можно оставить несколько)
+        # RefreshToken.objects.filter(user=self, is_revoked=False).update(is_revoked=True)
+        
+        # Создаем новый refresh токен
+        refresh_token = RefreshToken.create_for_user(self, days=30)
+        return refresh_token.token

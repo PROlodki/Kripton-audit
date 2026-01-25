@@ -66,9 +66,20 @@ class JWTAuthentication(authentication.BaseAuthentication):
         вернуть пользователя и токен, иначе - сгенерировать исключение.
         """
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY)
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            msg = 'Токен истек. Используйте refresh token для получения нового.'
+            raise exceptions.AuthenticationFailed(msg)
+        except jwt.InvalidTokenError:
+            msg = 'Ошибка аутентификации. Невозможно декодировать токен.'
+            raise exceptions.AuthenticationFailed(msg)
         except Exception:
-            msg = 'Ошибка аутентификации. Невозможно декодировать токеню'
+            msg = 'Ошибка аутентификации. Невозможно декодировать токен.'
+            raise exceptions.AuthenticationFailed(msg)
+
+        # Проверяем, что это access токен
+        if payload.get('type') != 'access':
+            msg = 'Неверный тип токена. Требуется access token.'
             raise exceptions.AuthenticationFailed(msg)
 
         try:
