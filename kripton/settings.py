@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'kripton.authpage',
     'kripton.client',
     'kripton.guide',
+    'kripton.Reports'
 ]
 
 MIDDLEWARE = [
