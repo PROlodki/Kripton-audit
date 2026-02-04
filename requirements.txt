@@ -1,0 +1,9 @@
+Django>=4.0
+djangorestframework>=3.14
+django-clickhouse       # если используете пакет для интеграции
+psycopg2-binary         # для PostgreSQL
+python-dotenv  
+clickhouse-driver>=0.2.5
+python-dotenv>=1.0
+django-filter>=23.0
+django-cors-headers>=4.0
