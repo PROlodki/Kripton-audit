@@ -4,14 +4,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
-
-from .models import Department, ReportType, Report, ReportRequest
+from .models import PersonalData, Department, ReportType, Report, ReportRequest
 from .serializers import (
     DepartmentSerializer, 
     ReportTypeSerializer,
     ReportSerializer,
     ReportRequestSerializer,
-    ReportRequestActionSerializer
+    ReportRequestActionSerializer,
+    PersonalDataSerializer
 )
 
 
@@ -181,6 +181,49 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+class PersonalDataViewSet(viewsets.ModelViewSet):
+    queryset = PersonalData.objects.all()
+    serializer_class = PersonalDataSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['last_name', 'first_name', 'middle_name', 'position', 'rank']
+    ordering_fields = ['last_name', 'hire_date', 'created_at']
+    ordering = ['last_name', 'first_name']
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        # Администраторы видят все
+        if user.is_superuser or user.is_staff:
+            return PersonalData.objects.all()
+        
+        # Руководители видят сотрудников своего отдела
+        managed_departments = Department.objects.filter(head=user)
+        if managed_departments.exists():
+            return PersonalData.objects.filter(department__in=managed_departments)
+        
+        # Обычные пользователи видят только свои данные
+        return PersonalData.objects.filter(user=user)
+    
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """Только активные сотрудники"""
+        queryset = self.get_queryset().filter(is_active=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def by_department(self, request):
+        """Сотрудники по отделам"""
+        department_id = request.query_params.get('department_id')
+        if department_id:
+            queryset = self.get_queryset().filter(department_id=department_id)
+        else:
+            queryset = self.get_queryset()
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

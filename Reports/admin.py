@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Department, ReportType, Report, ReportRequest
+from .models import PersonalData, Department, ReportType, Report, ReportRequest
 
 
 @admin.register(Department)
@@ -73,3 +73,34 @@ class ReportRequestAdmin(admin.ModelAdmin):
                 count += 1
         self.message_user(request, f"Отклонено {count} запросов")
     reject_selected.short_description = "Отклонить выбранные запросы"
+
+@admin.register(PersonalData)
+class PersonalDataAdmin(admin.ModelAdmin):
+    list_display = ['get_full_name', 'position', 'department', 'is_active', 'hire_date']
+    list_filter = ['is_active', 'department', 'position']
+    search_fields = ['last_name', 'first_name', 'middle_name', 'position']
+    readonly_fields = ['created_at', 'updated_at', 'work_experience_display']
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('user', 'department', 'last_name', 'first_name', 'middle_name')
+        }),
+        ('Рабочая информация', {
+            'fields': ('position', 'rank', 'hire_date', 'dismissal_date', 'is_active')
+        }),
+        ('Дополнительно', {
+            'fields': ('additional_data',)
+        }),
+        ('Метаданные', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+    get_full_name.short_description = 'ФИО'
+    get_full_name.admin_order_field = 'last_name'
+    
+    def work_experience_display(self, obj):
+        return f"{obj.work_experience} лет"
+    work_experience_display.short_description = 'Стаж работы'

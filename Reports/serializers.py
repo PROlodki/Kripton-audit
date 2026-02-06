@@ -1,8 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Department, ReportType, Report, ReportRequest
+from .models import PersonalData, Department, ReportType, Report, ReportRequest
 
-# Используем вашу кастомную модель
 User = get_user_model()
 
 
@@ -111,3 +110,37 @@ class ReportRequestActionSerializer(serializers.Serializer):
                 "При отклонении необходимо указать причину"
             )
         return data
+
+class PersonalDataSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    work_experience = serializers.SerializerMethodField()
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    
+    class Meta:
+        model = PersonalData
+        fields = [
+            'id',
+            'full_name',
+            'last_name',
+            'first_name',
+            'middle_name',
+            'position',
+            'rank',
+            'department',
+            'department_name',
+            'hire_date',
+            'dismissal_date',
+            'is_active',
+            'work_experience',
+            'additional_data',
+            'created_at',
+            'updated_at',
+            'user'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'work_experience']
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+    
+    def get_work_experience(self, obj):
+        return obj.work_experience

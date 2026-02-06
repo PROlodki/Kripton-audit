@@ -1,9 +1,12 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+import json
+from datetime import date
 
-# Используем вашу кастомную модель пользователя
 User = settings.AUTH_USER_MODEL
 
 
@@ -284,3 +287,172 @@ class ReportRequest(models.Model):
             return True
         
         return False
+
+class PersonalData(models.Model):
+    
+    user = models.ForeignKey(
+        'authpage.User',  
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='personal_data',
+        verbose_name="Пользователь"
+    )
+    
+    department = models.ForeignKey(
+        'Department', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='personnel',
+        verbose_name="Отдел"
+    )
+    
+    last_name = models.CharField(
+        max_length=100,
+        verbose_name="Фамилия"
+    )
+    
+    first_name = models.CharField(
+        max_length=100,
+        verbose_name="Имя"
+    )
+    
+    middle_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Отчество"
+    )
+    
+    position = models.CharField(
+        max_length=255,
+        verbose_name="Должность"
+    )
+    
+    rank = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Звание"
+    )
+    
+    hire_date = models.DateField(
+        verbose_name="Дата приема на работу"
+    )
+    
+    dismissal_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Дата увольнения"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Активен"
+    )
+    
+    additional_data = models.TextField(
+        blank=True,
+        verbose_name="Дополнительные данные",
+        help_text="Дополнительная информация"
+    )
+    
+    # ========== МЕТАДАННЫЕ ==========
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Дата создания"
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Дата обновления"
+    )
+    
+    class Meta:
+        """Мета-класс с настройками модели"""
+        verbose_name = "Персональные данные"
+        verbose_name_plural = "Персональные данные"
+        ordering = ['last_name', 'first_name', 'middle_name']
+        indexes = [
+            models.Index(fields=['last_name', 'first_name']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['department', 'is_active']),
+            models.Index(fields=['hire_date']),
+            models.Index(fields=['position']),
+        ]
+    
+    def __str__(self):
+        return self.get_full_name()
+    
+    def get_full_name(self):
+        parts = [self.last_name, self.first_name]
+        if self.middle_name:
+            parts.append(self.middle_name)
+        return ' '.join(parts)
+    
+    @property
+    def work_experience(self):
+        from datetime import date
+        
+        if not self.hire_date:
+            return 0
+        
+        end_date = self.dismissal_date or date.today()
+        
+        years = end_date.year - self.hire_date.year
+        
+        if (end_date.month, end_date.day) < (self.hire_date.month, self.hire_date.day):
+            years -= 1
+        
+        return max(0, years)
+    
+    @property
+    def is_currently_employed(self):
+        return self.is_active and not self.dismissal_date
+    
+    def save(self, *args, **kwargs):
+        if self.dismissal_date and self.is_active:
+            self.is_active = False
+        
+        if not self.dismissal_date and not self.is_active:
+            self.is_active = True
+        
+        if self.hire_date and self.dismissal_date:
+            if self.dismissal_date < self.hire_date:
+                raise ValueError("Дата увольнения не может быть раньше даты приема")
+        
+        super().save(*args, **kwargs)
+    
+    def get_additional_data_dict(self):
+        import json
+        if self.additional_data:
+            try:
+                return json.loads(self.additional_data)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    def set_additional_data(self, data_dict):
+        import json
+        self.additional_data = json.dumps(data_dict, ensure_ascii=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'full_name': self.get_full_name(),
+            'last_name': self.last_name,
+            'first_name': self.first_name,
+            'middle_name': self.middle_name,
+            'position': self.position,
+            'rank': self.rank,
+            'department': str(self.department) if self.department else None,
+            'department_id': self.department_id,
+            'hire_date': self.hire_date.isoformat() if self.hire_date else None,
+            'dismissal_date': self.dismissal_date.isoformat() if self.dismissal_date else None,
+            'is_active': self.is_active,
+            'work_experience': self.work_experience,
+            'is_currently_employed': self.is_currently_employed,
+            'user_id': self.user_id,
+            'additional_data': self.get_additional_data_dict(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
