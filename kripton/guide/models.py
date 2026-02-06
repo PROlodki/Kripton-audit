@@ -1,5 +1,3 @@
-from multiprocessing.process import parent_process
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -27,7 +25,15 @@ class DepartmentManager(models.Manager):
         return department
 
 class Department(models.Model):
-    name  = models.CharField(max_length=255, verbose_name='Название')
+    """Единая модель подразделения: справочник (guide) и отчёты (Reports)."""
+    name = models.CharField(max_length=255, verbose_name='Название')
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name='Код'
+    )
 
     parent = models.ForeignKey(
         'self',
@@ -41,7 +47,10 @@ class Department(models.Model):
     head_of_department = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True
+        null=True,
+        blank=True,
+        related_name='managed_departments',
+        verbose_name='Руководитель'
     )
 
     description = models.CharField(
@@ -50,15 +59,17 @@ class Department(models.Model):
         blank=True
     )
 
-
     is_active = models.BooleanField(
         default=True,
         verbose_name='Активно'
     )
 
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
     class Meta:
         verbose_name = 'Подразделение'
-        verbose_name_plural = 'Подразделение'
+        verbose_name_plural = 'Подразделения'
+        ordering = ['name']
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.code})" if self.code else self.name

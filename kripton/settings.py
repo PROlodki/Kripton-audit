@@ -151,3 +151,9 @@ REST_FRAMEWORK = {
 
 JWT_SECRET = 'KrIpToNuK7fP9Qm3ZsA1xR8tV4nW2yH6bJ0cL5dE9'
 JWT_ALGO = 'HS256'
+
+# ClickHouse (для kripton.datasources; при отсутствии сервера предпросмотр будет падать при обращении)
+CLICKHOUSE_HOST = 'localhost'
+CLICKHOUSE_USER = 'default'
+CLICKHOUSE_PASSWORD = ''
+CLICKHOUSE_DB = 'default'

@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from kripton.Reports.models import ReportRequest, Report, ReportType, Department
+from Reports.models import ReportRequest, Report, ReportType
+from kripton.guide.models import Department
 
 class Command(BaseCommand):
     help = 'Инициализация системы отчетов: создание групп и базовых данных'
@@ -65,11 +66,10 @@ class Command(BaseCommand):
             
             if not Department.objects.exists():
                 departments = [
-                    {'name': 'IT отдел', 'code': 'IT', 'head': admin_user},
-                    {'name': 'Финансовый отдел', 'code': 'FIN', 'head': admin_user},
-                    {'name': 'Отдел продаж', 'code': 'SALES', 'head': admin_user},
+                    {'name': 'IT отдел', 'code': 'IT', 'head_of_department': admin_user},
+                    {'name': 'Финансовый отдел', 'code': 'FIN', 'head_of_department': admin_user},
+                    {'name': 'Отдел продаж', 'code': 'SALES', 'head_of_department': admin_user},
                 ]
-                
                 for dept_data in departments:
                     Department.objects.create(**dept_data)
                 self.stdout.write('✓ Созданы базовые отделы')

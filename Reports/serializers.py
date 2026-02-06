@@ -6,17 +6,22 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """Сериализатор пользователя (authpage.User: нет first_name/last_name)."""
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name')
+        fields = ('id', 'username', 'email')
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    head_info = UserSerializer(source='head', read_only=True)
+    head_info = UserSerializer(source='head_of_department', read_only=True)
     
     class Meta:
         model = Department
-        fields = ('id', 'name', 'code', 'description', 'head', 'head_info', 'created_at')
+        fields = (
+            'id', 'name', 'code', 'description',
+            'head_of_department', 'head_info', 'created_at',
+            'parent', 'is_active'
+        )
 
 
 class ReportTypeSerializer(serializers.ModelSerializer):
@@ -28,15 +33,30 @@ class ReportTypeSerializer(serializers.ModelSerializer):
                  'stakeholders', 'stakeholders_info', 'is_active', 'created_at')
 
 
-class ReportSerializer(serializers.ModelSerializer):
+class ReportListSerializer(serializers.ModelSerializer):
+    """Краткий сериализатор отчёта для списков."""
     created_by_info = UserSerializer(source='created_by', read_only=True)
-    report_type_info = ReportTypeSerializer(source='report_type', read_only=True)
+    report_type_name = serializers.CharField(source='report_type.name', read_only=True)
     
     class Meta:
         model = Report
-        fields = ('id', 'title', 'report_type', 'report_type_info', 'description',
-                 'clickhouse_table', 'clickhouse_query', 'data', 'file',
-                 'created_by', 'created_by_info', 'created_at')
+        fields = ('id', 'title', 'report_type', 'report_type_name', 'created_by', 'created_by_info', 'created_at', 'submitted_at', 'approved_at')
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    """Полный сериализатор отчёта."""
+    created_by_info = UserSerializer(source='created_by', read_only=True)
+    report_type_info = ReportTypeSerializer(source='report_type', read_only=True)
+    approved_by_info = UserSerializer(source='approved_by', read_only=True)
+    
+    class Meta:
+        model = Report
+        fields = (
+            'id', 'title', 'report_type', 'report_type_info', 'description',
+            'clickhouse_table', 'clickhouse_query', 'data', 'file',
+            'created_by', 'created_by_info', 'created_at',
+            'submitted_at', 'approved_at', 'approved_by', 'approved_by_info',
+        )
 
 
 class ReportRequestSerializer(serializers.ModelSerializer):

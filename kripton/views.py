@@ -1,8 +1,4 @@
 from django.shortcuts import render, redirect
-from clickhouse_driver import Client
-from django.conf import settings
-import hashlib
-import jwt
 
 
 

@@ -23,10 +23,10 @@ def core_exception_handler(exc, context):
 
 
 def _handle_generic_error(exc, context, response):
-    # Это самый простой обработчик исключений. Мы
-    # берем ответ сгенерированный DRF и заключаем его в ключ 'errors'.
+    # DRF может вернуть None, если не обработал исключение
+    if response is None:
+        return None
     response.data = {
         'errors': response.data
     }
-
     return response

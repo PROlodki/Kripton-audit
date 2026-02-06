@@ -77,8 +77,12 @@ class LoginSerializer(serializers.Serializer):
                 'This user has been deactivated.'
             )
 
-        # Метод validate должен возвращать словать проверенных данных. Это
-        # данные, которые передются в т.ч. в методы create и update.
+        # Лог аудита: успешный вход
+        request = self.context.get('request')
+        if request:
+            from kripton.audit import log_audit
+            log_audit(request=request, action_type='login', user=user, details={'email': user.email})
+
         return {
             'email': user.email,
             'username': user.username,

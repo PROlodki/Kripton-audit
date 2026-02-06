@@ -1,45 +1,30 @@
 from django.db import models
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 import json
-from datetime import date
+
+from kripton.guide.models import Department
 
 User = settings.AUTH_USER_MODEL
 
 
-class Department(models.Model):
-    """Подразделение"""
-    name = models.CharField(max_length=200, verbose_name='Название')
-    code = models.CharField(max_length=50, unique=True, verbose_name='Код')
-    description = models.TextField(blank=True, verbose_name='Описание')
-    head = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='managed_departments',
-        verbose_name='Руководитель'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = 'Подразделение'
-        verbose_name_plural = 'Подразделения'
-        ordering = ['name']
-    
-    def __str__(self):
-        return f"{self.name} ({self.code})"
-
-
 class ReportType(models.Model):
     """Тип отчета"""
-    name = models.CharField(max_length=200, verbose_name='Название')
-    code = models.CharField(max_length=50, unique=True, verbose_name='Код')
+    name = models.CharField(
+        max_length=200,
+        verbose_name='Название'
+    )
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Код'
+    )
     description = models.TextField(verbose_name='Описание')
-    template = models.TextField(blank=True, help_text='Шаблон отчета')
+    template = models.TextField(
+        blank=True,
+        help_text='Шаблон отчета'
+    )
     
     # Кто может просматривать отчеты этого типа
     stakeholders = models.ManyToManyField(
@@ -71,20 +56,55 @@ class ReportType(models.Model):
 
 class Report(models.Model):
     """Созданный отчет"""
-    title = models.CharField(max_length=255, verbose_name='Название')
-    report_type = models.ForeignKey(ReportType, on_delete=models.CASCADE, verbose_name='Тип отчета')
-    description = models.TextField(blank=True, verbose_name='Описание')
+    title = models.CharField(
+        max_length=255,
+        verbose_name='Название'
+    )
+    report_type = models.ForeignKey(
+        ReportType,
+        on_delete=models.CASCADE,
+        verbose_name='Тип отчета'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Описание'
+        )
     
     # Ссылка на данные в ClickHouse (если используется)
-    clickhouse_table = models.CharField(max_length=200, blank=True, verbose_name='Таблица ClickHouse')
-    clickhouse_query = models.TextField(blank=True, verbose_name='Запрос ClickHouse')
+    clickhouse_table = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Таблица ClickHouse'
+    )
+    clickhouse_query = models.TextField(
+        blank=True,
+        verbose_name='Запрос ClickHouse'
+    )
     
     # Локальное хранение
     data = models.JSONField(default=dict, blank=True, verbose_name='Данные отчета')
     file = models.FileField(upload_to='reports/%Y/%m/%d/', null=True, blank=True, verbose_name='Файл')
     
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='Создатель')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name='Создатель'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата создания'
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата отправки')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата утверждения')
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_reports',
+        verbose_name='Утвердил'
+    )
     
     class Meta:
         verbose_name = 'Отчет'
@@ -118,7 +138,7 @@ class ReportRequest(models.Model):
         on_delete=models.PROTECT,
         related_name='report_requests',
         verbose_name='Подразделение'
-    )
+    )  # guide.Department — единая модель подразделений
     
     report_type = models.ForeignKey(
         ReportType,
@@ -229,7 +249,7 @@ class ReportRequest(models.Model):
             return True
         
         # Руководитель отдела может утверждать запросы своего отдела
-        if hasattr(self.department, 'head') and self.department.head == user:
+        if self.department and self.department.head_of_department == user:
             return True
         
         # Нельзя утверждать свои собственные запросы
@@ -256,6 +276,10 @@ class ReportRequest(models.Model):
         
         self.approved_by = user
         self.save()
+
+    def reject(self, user, rejection_reason=None):
+        """Отклонить запрос (обёртка над approve с причиной)."""
+        self.approve(user, rejection_reason=rejection_reason or '')
     
     def can_view(self, user):
         """
@@ -273,7 +297,7 @@ class ReportRequest(models.Model):
             return True
         
         # Руководитель отдела видит запросы своего отдела
-        if hasattr(self.department, 'head') and self.department.head == user:
+        if self.department and self.department.head_of_department == user:
             return True
         
         # Заинтересованные лица видят запросы своих типов отчетов
@@ -300,7 +324,7 @@ class PersonalData(models.Model):
     )
     
     department = models.ForeignKey(
-        'Department', 
+        Department,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

@@ -110,13 +110,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         """
 
         dt = datetime.utcnow() + timedelta(days=1)
-
         payload = {
             'id': self.pk,
-            'exp': dt,  # Можно передать datetime, PyJWT сам конвертирует
+            'exp': dt,
         }
-
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
+        secret = getattr(settings, 'JWT_SECRET', settings.SECRET_KEY)
+        algo = getattr(settings, 'JWT_ALGO', 'HS256')
+        token = jwt.encode(payload, secret, algorithm=algo)
 
         # PyJWT >= 2.0 возвращает строку, старые — bytes
         if isinstance(token, bytes):

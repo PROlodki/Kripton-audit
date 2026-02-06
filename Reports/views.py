@@ -6,12 +6,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from .models import PersonalData, Department, ReportType, Report, ReportRequest
 from .serializers import (
-    DepartmentSerializer, 
+    DepartmentSerializer,
     ReportTypeSerializer,
     ReportSerializer,
+    ReportListSerializer,
     ReportRequestSerializer,
     ReportRequestActionSerializer,
-    PersonalDataSerializer
+    PersonalDataSerializer,
 )
 
 
@@ -19,13 +20,43 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active', 'parent']
     search_fields = ['name', 'code']
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=True, methods=['get'])
+    def users(self, request, pk=None):
+        """DepartmentUsersView — пользователи (персонал) подразделения."""
+        department = self.get_object()
+        from .models import PersonalData
+        qs = PersonalData.objects.filter(department=department)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = PersonalDataSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        serializer = PersonalDataSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def reports(self, request, pk=None):
+        """DepartmentReportsView — отчёты подразделения (через запросы)."""
+        department = self.get_object()
+        report_ids = ReportRequest.objects.filter(department=department).exclude(
+            report_id__isnull=True
+        ).values_list('report_id', flat=True)
+        qs = Report.objects.filter(pk__in=report_ids)
+        page = self.paginate_queryset(qs)
+        serializer_class = ReportListSerializer if request.query_params.get('brief') else ReportSerializer
+        if page is not None:
+            serializer = serializer_class(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        serializer = serializer_class(qs, many=True, context={'request': request})
+        return Response(serializer.data)
 
 
 class ReportTypeViewSet(viewsets.ModelViewSet):
@@ -47,31 +78,144 @@ class ReportTypeViewSet(viewsets.ModelViewSet):
 
 
 class ReportViewSet(viewsets.ModelViewSet):
-    serializer_class = ReportSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['report_type', 'created_by']
     search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'submitted_at', 'approved_at']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ReportListSerializer
+        return ReportSerializer
     
     def get_queryset(self):
         user = self.request.user
-        
-        # Администраторы видят все
         if user.is_superuser or user.is_staff:
             return Report.objects.all()
-        
-        # Обычные пользователи видят свои отчеты
-        # и отчеты типов, где они заинтересованные лица
         queryset = Report.objects.filter(created_by=user)
-        
-        # Добавляем отчеты типов, где пользователь - заинтересованное лицо
         stakeholder_types = ReportType.objects.filter(stakeholders=user)
         if stakeholder_types.exists():
             queryset = queryset | Report.objects.filter(report_type__in=stakeholder_types)
-        
         return queryset.distinct()
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        report = serializer.save(created_by=self.request.user)
+        from kripton.audit import log_audit
+        log_audit(
+            request=self.request,
+            action_type='create',
+            resource_type='report',
+            resource_id=str(report.pk),
+            details={'title': report.title},
+        )
+    
+    def perform_update(self, serializer):
+        report = serializer.save()
+        from kripton.audit import log_audit
+        log_audit(
+            request=self.request,
+            action_type='update',
+            resource_type='report',
+            resource_id=str(report.pk),
+            details={'title': report.title},
+        )
+    
+    def perform_destroy(self, instance):
+        pk, title = instance.pk, instance.title
+        instance.delete()
+        from kripton.audit import log_audit
+        log_audit(
+            request=self.request,
+            action_type='delete',
+            resource_type='report',
+            resource_id=str(pk),
+            details={'title': title},
+        )
+    
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """ReportSubmitView — отправка отчета."""
+        report = self.get_object()
+        if report.submitted_at:
+            return Response(
+                {'error': 'Отчет уже отправлен'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django.utils import timezone
+        report.submitted_at = timezone.now()
+        report.save(update_fields=['submitted_at'])
+        from kripton.audit import log_audit
+        log_audit(
+            request=request,
+            action_type='other',
+            resource_type='report',
+            resource_id=str(report.pk),
+            details={'title': report.title, 'action': 'submit'},
+        )
+        serializer = self.get_serializer(report)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """ReportApproveView — утверждение отчета (для admin/ZL)."""
+        report = self.get_object()
+        user = request.user
+        if not (user.is_superuser or user.is_staff):
+            from django.contrib.auth.models import Group
+            if not user.groups.filter(name__in=['Администраторы', 'Менеджеры']).exists():
+                return Response(
+                    {'error': 'Недостаточно прав для утверждения отчета'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        from django.utils import timezone
+        report.approved_at = timezone.now()
+        report.approved_by = user
+        report.save(update_fields=['approved_at', 'approved_by'])
+        from kripton.audit import log_audit
+        log_audit(
+            request=request,
+            action_type='approve',
+            resource_type='report',
+            resource_id=str(report.pk),
+            details={'title': report.title},
+        )
+        serializer = self.get_serializer(report)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        """ReportHistoryView — история изменений отчета (из AuditLog)."""
+        report = self.get_object()
+        from kripton.models import AuditLog
+        logs = AuditLog.objects.filter(
+            resource_type='report',
+            resource_id=str(report.pk),
+        ).order_by('-timestamp')[:100]
+        from kripton.audit_serializers import AuditLogSerializer
+        serializer = AuditLogSerializer(logs, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def export(self, request, pk=None):
+        """ReportExportView — экспорт в PDF/Excel/Word (формат в query: format=pdf|xlsx|docx)."""
+        report = self.get_object()
+        fmt = (request.query_params.get('format') or 'xlsx').lower()
+        if fmt not in ('pdf', 'xlsx', 'docx'):
+            fmt = 'xlsx'
+        from .export import export_report
+        try:
+            content_type, filename, content = export_report(report, fmt)
+        except Exception as e:
+            return Response(
+                {'error': f'Ошибка экспорта: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        from django.http import HttpResponse
+        response = HttpResponse(content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
 
 class ReportRequestViewSet(viewsets.ModelViewSet):
@@ -103,7 +247,7 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
         queryset = ReportRequest.objects.filter(requester=user)
         
         # Если пользователь - руководитель отдела
-        managed_departments = Department.objects.filter(head=user)
+        managed_departments = Department.objects.filter(head_of_department=user)
         if managed_departments.exists():
             queryset = queryset | ReportRequest.objects.filter(department__in=managed_departments)
         
@@ -118,8 +262,33 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
         serializer.save(requester=self.request.user)
     
     @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """ReportRequestApproveView — утверждение запроса (POST без body)."""
+        report_request = self.get_object()
+        try:
+            report_request.approve(request.user)
+            from kripton.audit import log_audit
+            log_audit(request=request, action_type='approve', resource_type='report_request', resource_id=str(report_request.pk), details={'title': report_request.title})
+            return Response({'message': 'Запрос утвержден', 'status': report_request.status}, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+    
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Отклонение запроса (POST body: rejection_reason)."""
+        report_request = self.get_object()
+        reason = request.data.get('rejection_reason', '')
+        try:
+            report_request.reject(request.user, rejection_reason=reason)
+            from kripton.audit import log_audit
+            log_audit(request=request, action_type='reject', resource_type='report_request', resource_id=str(report_request.pk), details={'title': report_request.title, 'rejection_reason': reason})
+            return Response({'message': 'Запрос отклонен', 'status': report_request.status}, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+    
+    @action(detail=True, methods=['post'])
     def perform_action(self, request, pk=None):
-        """Выполнить действие с запросом (утвердить/отклонить)"""
+        """Выполнить действие с запросом (утвердить/отклонить) — body: {action, rejection_reason?}"""
         report_request = self.get_object()
         serializer = ReportRequestActionSerializer(data=request.data)
         
@@ -130,6 +299,14 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
             if action_type == 'approve':
                 try:
                     report_request.approve(user)
+                    from kripton.audit import log_audit
+                    log_audit(
+                        request=request,
+                        action_type='approve',
+                        resource_type='report_request',
+                        resource_id=str(report_request.pk),
+                        details={'title': report_request.title},
+                    )
                     return Response(
                         {'message': 'Запрос утвержден', 'status': report_request.status},
                         status=status.HTTP_200_OK
@@ -144,6 +321,14 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
                 try:
                     rejection_reason = serializer.validated_data.get('rejection_reason', '')
                     report_request.reject(user, rejection_reason=rejection_reason)
+                    from kripton.audit import log_audit
+                    log_audit(
+                        request=request,
+                        action_type='reject',
+                        resource_type='report_request',
+                        resource_id=str(report_request.pk),
+                        details={'title': report_request.title, 'rejection_reason': rejection_reason},
+                    )
                     return Response(
                         {'message': 'Запрос отклонен', 'status': report_request.status},
                         status=status.HTTP_200_OK
@@ -202,7 +387,7 @@ class PersonalDataViewSet(viewsets.ModelViewSet):
             return PersonalData.objects.all()
         
         # Руководители видят сотрудников своего отдела
-        managed_departments = Department.objects.filter(head=user)
+        managed_departments = Department.objects.filter(head_of_department=user)
         if managed_departments.exists():
             return PersonalData.objects.filter(department__in=managed_departments)
         
