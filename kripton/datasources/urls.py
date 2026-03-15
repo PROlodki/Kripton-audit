@@ -1,7 +1,10 @@
-from django.urls import path
-from .views import DataSourceListCreateView, PreviewView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import DataSourceViewSet
+
+router = DefaultRouter()
+router.register(r'', DataSourceViewSet, basename='datasource')
 
 urlpatterns = [
-    path('', DataSourceListCreateView.as_view()),
-    path('<int:pk>/preview/', PreviewView.as_view(), name='datasource-preview'),
+    path('', include(router.urls)),
 ]

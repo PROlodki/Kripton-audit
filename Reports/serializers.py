@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import PersonalData, Department, ReportType, Report, ReportRequest
+from kripton.guide.models import Department
+from .models import PersonalData, ReportType, Report, ReportRequest
 
 User = get_user_model()
 
@@ -48,7 +49,7 @@ class ReportSerializer(serializers.ModelSerializer):
     created_by_info = UserSerializer(source='created_by', read_only=True)
     report_type_info = ReportTypeSerializer(source='report_type', read_only=True)
     approved_by_info = UserSerializer(source='approved_by', read_only=True)
-    
+
     class Meta:
         model = Report
         fields = (
@@ -57,6 +58,9 @@ class ReportSerializer(serializers.ModelSerializer):
             'created_by', 'created_by_info', 'created_at',
             'submitted_at', 'approved_at', 'approved_by', 'approved_by_info',
         )
+        read_only_fields = (
+            'created_by', 'created_at', 'submitted_at', 'approved_at', 'approved_by',
+        )
 
 
 class ReportRequestSerializer(serializers.ModelSerializer):
@@ -64,28 +68,34 @@ class ReportRequestSerializer(serializers.ModelSerializer):
     department_info = DepartmentSerializer(source='department', read_only=True)
     report_type_info = ReportTypeSerializer(source='report_type', read_only=True)
     approved_by_info = UserSerializer(source='approved_by', read_only=True)
+    assigned_to_info = UserSerializer(source='assigned_to', read_only=True)
     report_info = ReportSerializer(source='report', read_only=True)
-    
+
     can_approve = serializers.SerializerMethodField()
     can_view = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
-    
+
     class Meta:
         model = ReportRequest
         fields = (
             'id', 'requester', 'requester_info', 'department', 'department_info',
             'report_type', 'report_type_info', 'title', 'description', 'status',
             'status_display', 'rejection_reason', 'report', 'report_info',
-            'approved_by', 'approved_by_info', 'created_at', 'updated_at',
-            'approved_at', 'completed_at', 'priority', 'priority_display',
-            'deadline', 'can_approve', 'can_view'
+            'approved_by', 'approved_by_info', 'assigned_to', 'assigned_to_info',
+            'created_at', 'updated_at', 'approved_at', 'completed_at',
+            'priority', 'priority_display', 'deadline', 'can_approve', 'can_view'
         )
         read_only_fields = (
-            'status', 'rejection_reason', 'report', 'approved_by',
+            'requester', 'status', 'rejection_reason', 'report', 'approved_by',
             'approved_at', 'completed_at', 'created_at', 'updated_at',
             'can_approve', 'can_view'
         )
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+            'department': {'queryset': Department.objects.all()},
+            'report_type': {'queryset': ReportType.objects.all()},
+        }
     
     def get_can_approve(self, obj):
         request = self.context.get('request')
@@ -100,22 +110,25 @@ class ReportRequestSerializer(serializers.ModelSerializer):
         return False
     
     def validate(self, data):
-        """Дополнительная валидация при создании"""
+        """Дополнительная валидация при создании/обновлении"""
         request = self.context.get('request')
-        
         if request and request.user:
-            # Автоматически устанавливаем заявителя
-            data['requester'] = request.user
-            
-            # Проверяем, может ли пользователь создавать запросы этого типа
+            if not self.instance:
+                data['requester'] = request.user
             if 'report_type' in data:
                 report_type = data['report_type']
-                if not report_type.allowed_creators.filter(id=request.user.id).exists():
-                    if not (request.user.is_staff or request.user.is_superuser):
+                if not (request.user.is_staff or request.user.is_superuser):
+                    can_create = (
+                        report_type.allowed_creators.filter(id=request.user.id).exists()
+                        or report_type.stakeholders.filter(id=request.user.id).exists()
+                    )
+                    if not can_create:
                         raise serializers.ValidationError(
                             "Вы не можете создавать запросы этого типа отчета"
                         )
-        
+            # assigned_to может выставлять только админ
+            if 'assigned_to' in data and not (request.user.is_staff or request.user.is_superuser):
+                data.pop('assigned_to', None)
         return data
 
 
@@ -123,7 +136,12 @@ class ReportRequestActionSerializer(serializers.Serializer):
     """Для действий с запросом"""
     action = serializers.ChoiceField(choices=['approve', 'reject'])
     rejection_reason = serializers.CharField(required=False, allow_blank=True)
-    
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     def validate(self, data):
         if data['action'] == 'reject' and not data.get('rejection_reason'):
             raise serializers.ValidationError(

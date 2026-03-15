@@ -148,7 +148,7 @@ class ReportRequest(models.Model):
     )
     
     title = models.CharField(max_length=255, verbose_name='Название отчета')
-    description = models.TextField(verbose_name='Описание')
+    description = models.TextField(verbose_name='Описание', blank=True, default='')
     
     # Статус
     status = models.CharField(
@@ -194,6 +194,16 @@ class ReportRequest(models.Model):
     )
     
     deadline = models.DateField(null=True, blank=True, verbose_name='Срок выполнения')
+
+    # Кто именно должен выполнить отчёт (подразделение знаем по department)
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_report_requests',
+        verbose_name='Назначено',
+    )
     
     class Meta:
         verbose_name = 'Запрос отчета'

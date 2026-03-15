@@ -89,29 +89,33 @@ class LoginSerializer(serializers.Serializer):
             'token': user.token
         }
 
-class UserSerializer(serializers.ModelSerializer):
-    """ Ощуществляет сериализацию и десериализацию объектов User. """
+def _user_role(user):
+    """Роль для разграничения доступа: admin | stakeholder | user."""
+    if user.is_staff or user.is_superuser:
+        return 'admin'
+    from Reports.models import ReportType
+    if ReportType.objects.filter(stakeholders=user).exists():
+        return 'stakeholder'
+    return 'user'
 
-    # Пароль должен содержать от 8 до 128 символов. Это стандартное правило. Мы
-    # могли бы переопределить это по-своему, но это создаст лишнюю работу для
-    # нас, не добавляя реальных преимуществ, потому оставим все как есть.
+
+class UserSerializer(serializers.ModelSerializer):
+    """ Сериализация и десериализация User; для текущего пользователя добавляется role. """
+
     password = serializers.CharField(
         max_length=128,
         min_length=8,
         write_only=True
     )
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ('email', 'username', 'password', 'token',)
+        fields = ('email', 'username', 'password', 'token', 'role')
+        read_only_fields = ('token', 'role')
 
-        # Параметр read_only_fields является альтернативой явному указанию поля
-        # с помощью read_only = True, как мы это делали для пароля выше.
-        # Причина, по которой мы хотим использовать здесь 'read_only_fields'
-        # состоит в том, что нам не нужно ничего указывать о поле. В поле
-        # пароля требуются свойства min_length и max_length,
-        # но это не относится к полю токена.
-        read_only_fields = ('token',)
+    def get_role(self, obj):
+        return _user_role(obj)
 
     def update(self, instance, validated_data):
         """ Выполняет обновление User. """
@@ -137,3 +141,36 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class AdminCreateUserSerializer(serializers.Serializer):
+    """Валидация данных для создания пользователя админом (с подразделением и ЗЛ)."""
+    user = serializers.DictField()
+    user_type = serializers.ChoiceField(
+        choices=[('user', 'Пользователь'), ('stakeholder', 'Заинтересованное лицо')],
+        default='user',
+    )
+    department_id = serializers.IntegerField(required=False, allow_null=True)
+    report_type_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+    )
+
+    def validate(self, attrs):
+        if attrs.get('user_type') == 'stakeholder' and not attrs.get('report_type_ids'):
+            raise serializers.ValidationError(
+                {'report_type_ids': 'Для ЗЛ необходимо выбрать хотя бы один тип отчёта.'}
+            )
+        return attrs
+
+    def validate_user(self, value):
+        email = value.get('email')
+        password = value.get('password')
+        if not email:
+            raise serializers.ValidationError('email обязателен')
+        if not password or len(password) < 8:
+            raise serializers.ValidationError('пароль не менее 8 символов')
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError('Пользователь с таким email уже существует')
+        return value

@@ -29,9 +29,12 @@ def log_audit(
     resource_id='',
     details=None,
     user=None,
+    department_id=None,
+    department_name='',
+    department_code='',
 ):
     """
-    Создать запись в логе аудита.
+    Создать запись в логе аудита (Django + при наличии ClickHouse — дублирование в CH).
 
     :param request: HttpRequest (для user, ip_address, user_agent)
     :param action_type: строка из AuditLog.ActionType (create, update, delete, view, login, logout, approve, reject, other)
@@ -39,6 +42,9 @@ def log_audit(
     :param resource_id: идентификатор ресурса (строка или будет приведён к str)
     :param details: dict с дополнительными данными (сохраняется в JSON)
     :param user: пользователь (если не передан, берётся request.user)
+    :param department_id: id подразделения для дашбордов (опционально)
+    :param department_name: название подразделения (опционально)
+    :param department_code: код подразделения (опционально)
     """
     if details is None:
         details = {}
@@ -53,7 +59,7 @@ def log_audit(
         ip = None
         user_agent = ''
 
-    return AuditLog.objects.create(
+    log_entry = AuditLog.objects.create(
         user=user,
         action_type=action_type,
         resource_type=str(resource_type)[:100] if resource_type else '',
@@ -62,3 +68,29 @@ def log_audit(
         ip_address=ip,
         user_agent=user_agent,
     )
+
+    # Дублирование в ClickHouse для отчётов/дашбордов (при недоступности CH — тихо игнорируем)
+    try:
+        from kripton.clickhouse_services import push_audit_log
+        from django.utils import timezone
+        ts = log_entry.timestamp
+        if ts.tzinfo:
+            ts = timezone.make_naive(ts, timezone=timezone.utc)
+        push_audit_log(
+            timestamp=ts,
+            user_id=log_entry.user_id,
+            username=str(log_entry.user) if log_entry.user else '',
+            action_type=log_entry.action_type,
+            resource_type=log_entry.resource_type or '',
+            resource_id=log_entry.resource_id or '',
+            details=log_entry.details or {},
+            ip_address=str(log_entry.ip_address) if log_entry.ip_address else None,
+            user_agent=log_entry.user_agent or '',
+            department_id=department_id,
+            department_name=department_name or '',
+            department_code=department_code or '',
+        )
+    except Exception:
+        pass
+
+    return log_entry

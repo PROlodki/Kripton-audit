@@ -77,3 +77,35 @@ class AuditLog(models.Model):
     def __str__(self):
         user_str = str(self.user) if self.user else '—'
         return f"{self.timestamp:%Y-%m-%d %H:%M} | {user_str} | {self.get_action_type_display()} | {self.resource_type or '—'}"
+
+
+class RealtimeEvent(models.Model):
+    """События для SSE: уведомления, смена статуса отчёта."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='realtime_events',
+        verbose_name='Пользователь',
+    )
+    event_type = models.CharField(max_length=50, db_index=True)  # report_status, notification, ...
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'read', 'created_at'])]
+
+
+class UserActivity(models.Model):
+    """Последняя активность пользователя для отображения «кто онлайн»."""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='activity',
+    )
+    last_seen = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Активность пользователя'
+        verbose_name_plural = 'Активность пользователей'
