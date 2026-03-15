@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'kripton.realtime_middleware.UserActivityMiddleware',
 
     #'kripton.middleware.JWTMiddleware',
 ]
@@ -152,8 +153,11 @@ REST_FRAMEWORK = {
 JWT_SECRET = 'KrIpToNuK7fP9Qm3ZsA1xR8tV4nW2yH6bJ0cL5dE9'
 JWT_ALGO = 'HS256'
 
-# ClickHouse (для kripton.datasources; при отсутствии сервера предпросмотр будет падать при обращении)
-CLICKHOUSE_HOST = 'localhost'
-CLICKHOUSE_USER = 'default'
-CLICKHOUSE_PASSWORD = ''
-CLICKHOUSE_DB = 'default'
+# ClickHouse (для datasources, отчётов и дашбордов; при отсутствии сервера предпросмотр падает при обращении)
+import os
+CLICKHOUSE_HOST = os.environ.get('CLICKHOUSE_HOST', 'localhost')
+CLICKHOUSE_PORT = int(os.environ.get('CLICKHOUSE_PORT', '9000'))
+CLICKHOUSE_USER = os.environ.get('CLICKHOUSE_USER', 'default')
+CLICKHOUSE_PASSWORD = os.environ.get('CLICKHOUSE_PASSWORD', '')
+CLICKHOUSE_DB = os.environ.get('CLICKHOUSE_DB', 'default')
+CLICKHOUSE_CONNECT_TIMEOUT = 10

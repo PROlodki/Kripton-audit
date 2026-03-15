@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Kripton Audit - Система отчётов{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+            --text: #111827;
+            --text-light: #6b7280;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--light);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--border);
+            padding: 1.5rem 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1.5rem;
+            color: var(--text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--light);
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            background: #eef2ff;
+            color: var(--primary);
+            border-left-color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            color: var(--success);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 0.75rem;
+            font-weight: 600;
+            color: var(--text-light);
+            border-bottom: 2px solid var(--border);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 1rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: var(--light);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 300px;
+        }
+
+        .toast.active {
+            display: flex;
+        }
+
+        .toast-success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast-error {
+            border-left: 4px solid var(--danger);
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">{% block logo %}📊 Kripton Audit{% endblock %}</div>
+        <div class="user-info">
+            <span id="userName">Загрузка...</span>
+            <a href="/logout/" class="btn btn-danger" onclick="localStorage.removeItem('jwt')">Выход</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            {% block sidebar_extra %}{% endblock %}
+            <a href="#" class="nav-item active" data-page="dashboard" data-allowed-roles="admin,stakeholder,user">
+                <span>📈</span> Дашборд
+            </a>
+            <a href="#" class="nav-item" data-page="reports" data-allowed-roles="admin,stakeholder,user">
+                <span>📄</span> Отчёты
+            </a>
+            <a href="#" class="nav-item" data-page="requests" data-allowed-roles="admin,stakeholder,user">
+                <span>📋</span> Заявки
+            </a>
+            <a href="#" class="nav-item" data-page="datasources" data-allowed-roles="admin">
+                <span>💾</span> Источники данных
+            </a>
+            <a href="#" class="nav-item" data-page="audit" data-allowed-roles="admin">
+                <span>🔍</span> Лог аудита
+            </a>
+            <a href="#" class="nav-item" data-page="departments" data-allowed-roles="admin">
+                <span>🏢</span> Подразделения
+            </a>
+            <a href="#" class="nav-item" data-page="report-types" data-allowed-roles="admin">
+                <span>📑</span> Типы отчётов
+            </a>
+            <a href="#" class="nav-item" data-page="users" data-allowed-roles="admin">
+                <span>👤</span> Пользователи
+            </a>
+            <a href="#" class="nav-item" data-page="links" data-allowed-roles="admin">
+                <span>🔗</span> Все ссылки
+            </a>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page active" data-allowed-roles="admin,stakeholder,user">
+                <h1 class="page-title">Дашборд</h1>
+                <div class="stats-grid" id="dashboardStats"></div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Последние заявки</h2>
+                    </div>
+                    <div id="recentRequests"></div>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="page-reports" class="page" style="display: none;" data-allowed-roles="admin,stakeholder,user">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 class="page-title" id="reportsPageTitle">Отчёты</h1>
+                    <button class="btn btn-primary" id="btnCreateReport" onclick="showCreateReportModal()">+ Создать отчёт</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="reportsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Тип</th>
+                                    <th>Создатель</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requests Page -->
+            <div id="page-requests" class="page" style="display: none;" data-allowed-roles="admin,stakeholder,user">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 class="page-title" id="requestsPageTitle">Заявки на отчёты</h1>
+                    <button class="btn btn-primary" id="btnCreateRequest" onclick="showCreateRequestModal()">+ Создать заявку</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="requestsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Отдел</th>
+                                    <th>Тип отчёта</th>
+                                    <th id="thAssigned">Назначено</th>
+                                    <th>Статус</th>
+                                    <th>Дата</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requestsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DataSources Page -->
+            <div id="page-datasources" class="page" style="display: none;" data-allowed-roles="admin">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 class="page-title">Источники данных</h1>
+                    <button class="btn btn-primary" onclick="showCreateDataSourceModal()">+ Добавить источник</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="datasourcesTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Тип</th>
+                                    <th>Статус загрузки</th>
+                                    <th>Дата создания</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="datasourcesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Page -->
+            <div id="page-audit" class="page" style="display: none;" data-allowed-roles="admin">
+                <h1 class="page-title">Лог аудита</h1>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="auditTable">
+                            <thead>
+                                <tr>
+                                    <th>Время</th>
+                                    <th>Пользователь</th>
+                                    <th>Действие</th>
+                                    <th>Ресурс</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Departments Page -->
+            <div id="page-departments" class="page" style="display: none;" data-allowed-roles="admin">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 class="page-title">Подразделения</h1>
+                    <button class="btn btn-primary" onclick="showCreateDepartmentModal()">+ Создать подразделение</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="departmentsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Код</th>
+                                    <th>Руководитель</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departmentsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report types (admin) -->
+            <div id="page-report-types" class="page" style="display: none;" data-allowed-roles="admin">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 class="page-title">Типы отчётов</h1>
+                    <button class="btn btn-primary" onclick="showCreateReportTypeModal()">+ Создать тип отчёта</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table id="reportTypesTable">
+                            <thead><tr><th>ID</th><th>Название</th><th>Код</th><th>Действия</th></tr></thead>
+                            <tbody id="reportTypesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- Users (admin) -->
+            <div id="page-users" class="page" style="display: none;" data-allowed-roles="admin">
+                <h1 class="page-title">Пользователи</h1>
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header"><h2 class="card-title">Создать пользователя</h2></div>
+                    <div style="padding: 1rem;">
+                        <form id="formCreateUser" onsubmit="return createUserSubmit(event)">
+                            <div style="margin-bottom: 1rem;">
+                                <label>Тип пользователя</label>
+                                <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input type="radio" name="newUserType" value="user" checked> Пользователь
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input type="radio" name="newUserType" value="stakeholder"> Заинтересованное лицо (ЗЛ)
+                                    </label>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <input type="email" id="newUserEmail" placeholder="Email" required>
+                                <input type="text" id="newUserUsername" placeholder="Логин (необяз.)">
+                                <input type="password" id="newUserPassword" placeholder="Пароль (мин. 8)" required minlength="8">
+                                <select id="newUserDepartment"><option value="">— Подразделение —</option></select>
+                            </div>
+                            <div id="newUserReportTypesBlock" style="margin-bottom: 1rem; display: none;">
+                                <label>Типы отчётов (ЗЛ) <span style="color: var(--danger);">*</span></label>
+                                <select id="newUserReportTypes" multiple style="min-width: 200px; margin-top: 0.5rem;"></select>
+                                <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">Выберите типы отчётов (добавить или убрать при редактировании)</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Создать</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h2 class="card-title">Список пользователей и ЗЛ</h2></div>
+                    <div class="table-container">
+                        <table id="usersTable">
+                            <thead><tr><th>ID</th><th>Email / Логин</th><th>Роль</th><th>Подразделение</th><th>Типы отчётов (ЗЛ)</th><th>Действия</th></tr></thead>
+                            <tbody id="usersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- All Links Page -->
+            <div id="page-links" class="page" style="display: none;" data-allowed-roles="admin">
+                <h1 class="page-title">Все ссылки приложения</h1>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Страницы (HTML)</h2>
+                    </div>
+                    <ul id="linksPagesList" style="list-style: none;"></ul>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">API-эндпоинты</h2>
+                    </div>
+                    <div id="linksApiList"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Modals will be added dynamically -->
+    <div id="modalContainer"></div>
+
+    <script>
+        // API Base URL
+        const API_BASE = '/api';
+        let currentUser = null;
+        let endpoints = {};
+
+        function getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = localStorage.getItem('jwt') || (document.cookie.match(/jwt=([^;]+)/) || [])[1];
+            if (token) headers['Authorization'] = 'Token ' + token;
+            return headers;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initApp();
+            setupNavigation();
+        });
+
+        // Initialize App
+        async function initApp() {
+            try {
+                // Get user info
+                const userRes = await fetch(`${API_BASE}/auth/user`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    currentUser = userData.user || userData;
+                    if (!currentUser) currentUser = userData;
+                    document.getElementById('userName').textContent = currentUser.username || currentUser.email || 'Пользователь';
+                    applyRoleVisibility(currentUser.role || 'user');
+                } else {
+                    window.location.href = '/auth/';
+                    return;
+                }
+
+                // Get endpoints
+                const endpointsRes = await fetch(`${API_BASE}/frontend/actions/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (endpointsRes.ok) {
+                    const data = await endpointsRes.json();
+                    endpoints = data.endpoints || {};
+                }
+
+                // Load dashboard
+                loadDashboard();
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Ошибка инициализации', 'error');
+            }
+        }
+
+        function applyRoleVisibility(role) {
+            const allowed = (el) => {
+                const r = el.getAttribute('data-allowed-roles');
+                return r && r.split(',').map(s => s.trim()).includes(role);
+            };
+            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+                item.style.display = allowed(item) ? '' : 'none';
+            });
+            document.querySelectorAll('.page[data-allowed-roles]').forEach(page => {
+                page.style.display = 'none';
+            });
+            const firstNav = document.querySelector('.nav-item[data-page]:not([style*="display: none"])');
+            const firstPage = firstNav ? firstNav.dataset.page : null;
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if (firstNav) {
+                firstNav.classList.add('active');
+                const pageEl = document.getElementById('page-' + firstPage);
+                if (pageEl) {
+                    pageEl.style.display = 'block';
+                    if (firstPage === 'dashboard') loadDashboard();
+                    else if (firstPage === 'reports') loadReports();
+                    else if (firstPage === 'requests') loadRequests();
+                }
+            }
+            const reqTitle = document.getElementById('requestsPageTitle');
+            const btnCreateRequest = document.getElementById('btnCreateRequest');
+            const btnCreateReport = document.getElementById('btnCreateReport');
+            if (reqTitle) reqTitle.textContent = role === 'user' ? 'Мои задания' : 'Заявки на отчёты';
+            if (btnCreateRequest) btnCreateRequest.style.display = role === 'user' ? 'none' : '';
+            if (btnCreateReport) btnCreateReport.style.display = (role === 'stakeholder' ? 'none' : ''); // ЗЛ только просмотр отчётов
+        }
+
+        // Navigation
+        function setupNavigation() {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = item.dataset.page;
+                    switchPage(page);
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    item.classList.add('active');
+                });
+            });
+        }
+
+        function switchPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            const pageEl = document.getElementById(`page-${page}`);
+            if (pageEl) {
+                pageEl.style.display = 'block';
+                // Load page data
+                if (page === 'dashboard') loadDashboard();
+                else if (page === 'reports') loadReports();
+                else if (page === 'requests') loadRequests();
+                else if (page === 'datasources') loadDataSources();
+                else if (page === 'audit') loadAudit();
+                else if (page === 'departments') loadDepartments();
+                else if (page === 'report-types') loadReportTypes();
+                else if (page === 'users') loadUsersPage();
+                else if (page === 'links') loadLinks();
+            }
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const res = await fetch(`${API_BASE}/reports/dashboard/summary/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderDashboardStats(data);
+                }
+                // Load recent requests
+                const reqRes = await fetch(`${API_BASE}/reports/report-requests/?ordering=-created_at&page_size=5`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (reqRes.ok) {
+                    const reqData = await reqRes.json();
+                    renderRecentRequests(reqData.results || []);
+                }
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+            }
+        }
+
+        function renderDashboardStats(data) {
+            const stats = data.request_stats || {};
+            const html = `
+                <div class="stat-card">
+                    <div class="stat-label">Всего заявок</div>
+                    <div class="stat-value">${stats.total || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ожидают утверждения</div>
+                    <div class="stat-value">${stats.pending || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Утверждено</div>
+                    <div class="stat-value">${stats.approved || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Отчётов</div>
+                    <div class="stat-value">${data.reports_total || 0}</div>
+                </div>
+            `;
+            document.getElementById('dashboardStats').innerHTML = html;
+        }
+
+        function renderRecentRequests(requests) {
+            if (requests.length === 0) {
+                document.getElementById('recentRequests').innerHTML = '<div class="empty-state">Нет заявок</div>';
+                return;
+            }
+            const html = requests.map(req => `
+                <div style="padding: 1rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <strong>${req.title}</strong>
+                            <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
+                                ${req.department_info?.name || ''} • ${req.report_type_info?.name || ''}
+                            </div>
+                        </div>
+                        <span class="badge badge-${getStatusBadgeClass(req.status)}">${getStatusLabel(req.status)}</span>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('recentRequests').innerHTML = html;
+        }
+
+        // Reports
+        async function loadReports() {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderReports(data.results || []);
+                }
+            } catch (error) {
+                console.error('Reports load error:', error);
+            }
+        }
+
+        function renderReports(reports) {
+            const tbody = document.getElementById('reportsTableBody');
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Нет отчётов</td></tr>';
+                return;
+            }
+            tbody.innerHTML = reports.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td><strong>${r.title}</strong></td>
+                    <td>${r.report_type_info?.name || ''}</td>
+                    <td>${r.created_by_info?.username || ''}</td>
+                    <td>${formatDate(r.created_at)}</td>
+                    <td>${r.approved_at ? '<span class="badge badge-success">Утверждён</span>' : r.submitted_at ? '<span class="badge badge-warning">Отправлен</span>' : '<span class="badge badge-info">Черновик</span>'}</td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-primary" onclick="viewReport(${r.id})">Просмотр</button>
+                        ${!r.submitted_at ? `<button class="btn btn-sm btn-primary" onclick="submitReport(${r.id})">Отправить</button>` : ''}
+                        ${(currentUser && currentUser.role === 'admin') && r.submitted_at && !r.approved_at ? `<button class="btn btn-sm btn-primary" onclick="approveReport(${r.id})">Утвердить</button>` : ''}
+                        <button class="btn btn-sm" onclick="exportReport(${r.id}, 'xlsx')">Экспорт</button>
+                        ${!r.approved_at ? `<button class="btn btn-sm btn-danger" onclick="if(confirm('Удалить отчёт?')) deleteReport(${r.id})">Удалить</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Requests
+        async function loadRequests() {
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderRequests(data.results || []);
+                }
+            } catch (error) {
+                console.error('Requests load error:', error);
+            }
+        }
+
+        function renderRequests(requests) {
+            const tbody = document.getElementById('requestsTableBody');
+            if (requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет заявок</td></tr>';
+                return;
+            }
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const showAssigned = !!document.getElementById('thAssigned');
+            tbody.innerHTML = requests.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td><strong>${r.title}</strong></td>
+                    <td>${r.department_info?.name || ''}</td>
+                    <td>${r.report_type_info?.name || ''}</td>
+                    <td>${showAssigned ? (r.assigned_to_info ? (r.assigned_to_info.username || r.assigned_to_info.email) : '—') : ''}</td>
+                    <td><span class="badge badge-${getStatusBadgeClass(r.status)}">${getStatusLabel(r.status)}</span></td>
+                    <td>${formatDate(r.created_at)}</td>
+                    <td class="actions">
+                        ${r.can_approve && r.status === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="approveRequest(${r.id})">Утвердить</button><button class="btn btn-sm btn-danger" onclick="rejectRequest(${r.id})">Отклонить</button>` : ''}
+                        <button class="btn btn-sm" onclick="viewRequest(${r.id})">Просмотр</button>
+                        ${r.status === 'pending' ? `<button class="btn btn-sm btn-danger" onclick="if(confirm('Удалить заявку?')) deleteRequest(${r.id})">Удалить</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+            if (showAssigned && !isAdmin) {
+                const th = document.getElementById('thAssigned');
+                if (th) th.style.display = 'none';
+            }
+            document.querySelectorAll('#requestsTableBody tr').forEach((tr, i) => {
+                const r = requests[i];
+                if (!r) return;
+                const assignedCell = tr.cells[4];
+                if (assignedCell && !isAdmin) assignedCell.style.display = 'none';
+            });
+        }
+
+        // DataSources
+        async function loadDataSources() {
+            try {
+                const res = await fetch(`${API_BASE}/datasources/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderDataSources(data.results || []);
+                }
+            } catch (error) {
+                console.error('DataSources load error:', error);
+            }
+        }
+
+        function renderDataSources(datasources) {
+            const tbody = document.getElementById('datasourcesTableBody');
+            if (datasources.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет источников данных</td></tr>';
+                return;
+            }
+            tbody.innerHTML = datasources.map(ds => `
+                <tr>
+                    <td>${ds.id}</td>
+                    <td><strong>${ds.name}</strong></td>
+                    <td>${ds.type}</td>
+                    <td><span class="badge badge-${ds.last_load_status === 'success' ? 'success' : ds.last_load_status === 'error' ? 'danger' : 'info'}">${ds.last_load_status || 'idle'}</span></td>
+                    <td>${formatDate(ds.created_at)}</td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-primary" onclick="loadDataSource(${ds.id})">Загрузить</button>
+                        <button class="btn btn-sm" onclick="previewDataSource(${ds.id})">Предпросмотр</button>
+                        <button class="btn btn-sm btn-danger" onclick="if(confirm('Удалить источник?')) deleteDataSource(${ds.id})">Удалить</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Audit
+        async function loadAudit() {
+            try {
+                const res = await fetch(`${API_BASE}/audit/logs/?page_size=50`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderAudit(data.results || []);
+                }
+            } catch (error) {
+                console.error('Audit load error:', error);
+            }
+        }
+
+        function renderAudit(logs) {
+            const tbody = document.getElementById('auditTableBody');
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Нет записей</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${formatDateTime(log.timestamp)}</td>
+                    <td>${log.user?.username || log.user?.email || '—'}</td>
+                    <td><span class="badge badge-info">${getActionLabel(log.action_type)}</span></td>
+                    <td>${log.resource_type || '—'}</td>
+                    <td>${log.ip_address || '—'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Departments
+        async function loadDepartments() {
+            try {
+                const res = await fetch(`${API_BASE}/reports/departments/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const list = data.results || data || [];
+                    renderDepartments(list);
+                }
+            } catch (error) {
+                console.error('Departments load error:', error);
+            }
+        }
+
+        async function showCreateDepartmentModal() {
+            try {
+                const [deptRes, usersRes] = await Promise.all([
+                    fetch(`${API_BASE}/reports/departments/`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetch(`${API_BASE}/auth/admin/users/`, { credentials: 'include', headers: getAuthHeaders() })
+                ]);
+                const deptData = deptRes.ok ? await deptRes.json() : {};
+                const usersDataRaw = usersRes.ok ? await usersRes.json() : {};
+                const usersData = usersDataRaw && usersDataRaw.user ? usersDataRaw.user : usersDataRaw;
+                const list = Array.isArray(deptData.results) ? deptData.results : (Array.isArray(deptData) ? deptData : []);
+                const users = Array.isArray(usersData.results) ? usersData.results : (Array.isArray(usersData) ? usersData : []);
+                const parentOpts = '<option value="">— Без родителя —</option>' + list.map(d => `<option value="${d.id}">${d.name}${d.code ? ' (' + (d.code || '') + ')' : ''}</option>`).join('');
+                const headOpts = '<option value="">— Без руководителя —</option>' + users.map(u => `<option value="${u.id}">${escapeHtml((u.username || u.email) + (u.email && u.username ? ' (' + u.email + ')' : ''))}</option>`).join('');
+                showModal('Создать подразделение', `
+                <form onsubmit="createDepartment(event)">
+                    <div class="form-group">
+                        <label>Название <span style="color: var(--danger);">*</span></label>
+                        <input type="text" name="name" required placeholder="Название подразделения">
+                    </div>
+                    <div class="form-group">
+                        <label>Код</label>
+                        <input type="text" name="code" placeholder="Уникальный код (необяз.)">
+                    </div>
+                    <div class="form-group">
+                        <label>Описание</label>
+                        <input type="text" name="description" placeholder="Описание">
+                    </div>
+                    <div class="form-group">
+                        <label>Родительское подразделение</label>
+                        <select name="parent">${parentOpts}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Руководитель</label>
+                        <select name="head_of_department">${headOpts}</select>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="is_active" checked> Активно
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            `);
+            } catch (err) {
+                console.error('showCreateDepartmentModal', err);
+                showToast('Не удалось загрузить форму. Проверьте консоль.', 'error');
+                showModal('Создать подразделение', `
+                <form onsubmit="createDepartment(event)">
+                    <div class="form-group"><label>Название <span style="color: var(--danger);">*</span></label><input type="text" name="name" required placeholder="Название"></div>
+                    <div class="form-group"><label>Код</label><input type="text" name="code" placeholder="Код"></div>
+                    <div class="form-group"><label>Описание</label><input type="text" name="description" placeholder="Описание"></div>
+                    <div class="form-group"><label>Родительское подразделение</label><select name="parent"><option value="">— Без родителя —</option></select></div>
+                    <div class="form-group"><label>Руководитель</label><select name="head_of_department"><option value="">— Без руководителя —</option></select></div>
+                    <div class="form-group"><label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" name="is_active" checked> Активно</label></div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            `);
+            }
+        }
+
+        function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        async function createDepartment(e) {
+            e.preventDefault();
+            const form = e.target;
+            const parentVal = form.parent?.value;
+            const headVal = form.head_of_department?.value;
+            try {
+                const body = {
+                    name: form.name.value.trim(),
+                    code: form.code.value.trim() || null,
+                    description: form.description.value.trim() || '',
+                    is_active: !!form.is_active.checked
+                };
+                if (parentVal) body.parent = parseInt(parentVal, 10);
+                if (headVal) body.head_of_department = parseInt(headVal, 10);
+                const res = await fetch(`${API_BASE}/reports/departments/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Подразделение создано', 'success');
+                    document.querySelector('.modal')?.remove();
+                    loadDepartments();
+                } else {
+                    const msg = data.name?.[0] || data.code?.[0] || data.detail || JSON.stringify(data);
+                    showToast(msg || 'Ошибка создания', 'error');
+                }
+            } catch (err) {
+                showToast('Ошибка создания подразделения', 'error');
+            }
+        }
+
+        function renderDepartments(departments) {
+            const tbody = document.getElementById('departmentsTableBody');
+            if (departments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Нет подразделений</td></tr>';
+                return;
+            }
+            tbody.innerHTML = departments.map(d => `
+                <tr>
+                    <td>${d.id}</td>
+                    <td><strong>${d.name}</strong></td>
+                    <td>${d.code || '—'}</td>
+                    <td>${d.head_info?.username || '—'}</td>
+                    <td><span class="badge badge-${d.is_active ? 'success' : 'danger'}">${d.is_active ? 'Активно' : 'Неактивно'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // Report types (admin)
+        async function loadReportTypes() {
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-types/`, { credentials: 'include', headers: getAuthHeaders() });
+                const data = await res.json();
+                const list = data.results || data || [];
+                const tbody = document.getElementById('reportTypesTableBody');
+                if (!tbody) return;
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Нет типов отчётов</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(t => `
+                    <tr>
+                        <td>${t.id}</td>
+                        <td><strong>${t.name}</strong></td>
+                        <td>${t.code || '—'}</td>
+                        <td><button class="btn btn-sm btn-primary" onclick="viewReportType(${t.id})">Просмотр</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error('loadReportTypes', e); }
+        }
+
+        function showCreateReportTypeModal() {
+            showModal('Создать тип отчёта', `
+                <form onsubmit="createReportType(event)">
+                    <div class="form-group">
+                        <label>Название <span style="color: var(--danger);">*</span></label>
+                        <input type="text" name="name" required placeholder="Название типа">
+                    </div>
+                    <div class="form-group">
+                        <label>Код <span style="color: var(--danger);">*</span></label>
+                        <input type="text" name="code" required placeholder="Уникальный код (латиница, цифры)">
+                    </div>
+                    <div class="form-group">
+                        <label>Описание</label>
+                        <textarea name="description" rows="2" placeholder="Описание типа отчёта"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            `);
+        }
+
+        async function createReportType(e) {
+            e.preventDefault();
+            const form = e.target;
+            const name = (form.name && form.name.value || '').trim();
+            const code = (form.code && form.code.value || '').trim();
+            if (!name) { showToast('Введите название типа отчёта', 'error'); return; }
+            if (!code) { showToast('Введите код типа отчёта', 'error'); return; }
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-types/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: name,
+                        code: code,
+                        description: (form.description && form.description.value || '').trim()
+                    })
+                });
+                if (res.ok) {
+                    showToast('Тип отчёта создан', 'success');
+                    document.querySelector('.modal')?.remove();
+                    loadReportTypes();
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || err.name || 'Ошибка', 'error');
+                }
+            } catch (err) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        function viewReportType(id) { showToast('Просмотр типа #' + id, 'info'); }
+
+        let _usersPageDepartments = [];
+        let _usersPageReportTypes = [];
+
+        async function loadUsersPage() {
+            const deptSel = document.getElementById('newUserDepartment');
+            const rtSel = document.getElementById('newUserReportTypes');
+            try {
+                const [deptRes, typesRes, usersRes] = await Promise.all([
+                    fetch(`${API_BASE}/reports/departments/`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetch(`${API_BASE}/reports/report-types/`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetch(`${API_BASE}/auth/admin/users/`, { credentials: 'include', headers: getAuthHeaders() })
+                ]);
+                const deptData = await deptRes.json();
+                const typesData = await typesRes.json();
+                const usersData = usersRes.ok ? await usersRes.json() : {};
+                _usersPageDepartments = deptData.results || deptData || [];
+                _usersPageReportTypes = typesData.results || typesData || [];
+                const departments = _usersPageDepartments;
+                const types = _usersPageReportTypes;
+                if (deptSel) deptSel.innerHTML = '<option value="">— Подразделение —</option>' + departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                if (rtSel) rtSel.innerHTML = types.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                const users = usersData.results || [];
+                renderUsersTable(users, departments, types);
+            } catch (e) { console.error('loadUsersPage', e); }
+            const typeBlock = document.getElementById('newUserReportTypesBlock');
+            document.querySelectorAll('input[name="newUserType"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (typeBlock) typeBlock.style.display = this.value === 'stakeholder' ? 'block' : 'none';
+                });
+            });
+            const checked = document.querySelector('input[name="newUserType"]:checked');
+            if (typeBlock && checked) typeBlock.style.display = checked.value === 'stakeholder' ? 'block' : 'none';
+        }
+
+        function renderUsersTable(users, departments, types) {
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) return;
+            const roleLabel = (r) => ({ admin: 'Админ', stakeholder: 'ЗЛ', user: 'Пользователь' })[r] || r;
+            const deptName = (id) => (departments.find(d => d.id === id) || {}).name || '—';
+            const typesNames = (ids) => (ids || []).map(id => (types.find(t => t.id === id) || {}).name || id).join(', ') || '—';
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет пользователей</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.email || '')} ${u.username && u.username !== u.email ? '<br><small>' + escapeHtml(u.username) + '</small>' : ''}</td>
+                    <td><span class="badge badge-info">${roleLabel(u.role)}</span></td>
+                    <td>${escapeHtml(deptName(u.department_id))}</td>
+                    <td style="max-width: 200px;">${escapeHtml(typesNames(u.report_type_ids))}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="showEditUserModal(${u.id})">Редактировать</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function showEditUserModal(userId) {
+            try {
+                const [userRes, deptRes, typesRes] = await Promise.all([
+                    fetch(`${API_BASE}/auth/admin/users/${userId}/`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetch(`${API_BASE}/reports/departments/`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetch(`${API_BASE}/reports/report-types/`, { credentials: 'include', headers: getAuthHeaders() })
+                ]);
+                if (!userRes.ok) { showToast('Пользователь не найден', 'error'); return; }
+                const userRaw = await userRes.json();
+                const user = userRaw && userRaw.user ? userRaw.user : userRaw;
+                const deptData = await deptRes.json();
+                const typesData = await typesRes.json();
+                const departments = deptData.results || deptData || [];
+                const types = typesData.results || typesData || [];
+                const deptOpts = '<option value="">— Без подразделения —</option>' + departments.map(d => `<option value="${d.id}" ${d.id === user.department_id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('');
+                const rtOptions = types.map(t => `<option value="${t.id}" ${(user.report_type_ids || []).includes(t.id) ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+                showModal('Редактировать: ' + (user.email || user.username), `
+                    <form onsubmit="updateUserSubmit(event, ${userId})">
+                        <div class="form-group">
+                            <label>Подразделение</label>
+                            <select name="department_id" id="editUserDepartment">${deptOpts}</select>
+                        </div>
+                        <div class="form-group">
+                            <label>Типы отчётов (ЗЛ)</label>
+                            <p style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.5rem;">Добавьте или снимите типы — пользователь будет ЗЛ по выбранным типам</p>
+                            <select name="report_type_ids" id="editUserReportTypes" multiple style="min-width: 100%; min-height: 120px;">${rtOptions}</select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </form>
+                `);
+            } catch (e) {
+                console.error('showEditUserModal', e);
+                showToast('Ошибка загрузки', 'error');
+            }
+        }
+
+        async function updateUserSubmit(e, userId) {
+            e.preventDefault();
+            const form = e.target;
+            const departmentId = form.department_id && form.department_id.value ? parseInt(form.department_id.value, 10) : null;
+            const rtMulti = document.getElementById('editUserReportTypes');
+            const reportTypeIds = rtMulti ? Array.from(rtMulti.selectedOptions).map(o => parseInt(o.value, 10)) : [];
+            try {
+                const res = await fetch(`${API_BASE}/auth/admin/users/${userId}/`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        department_id: departmentId,
+                        report_type_ids: reportTypeIds
+                    })
+                });
+                if (res.ok) {
+                    showToast('Изменения сохранены', 'success');
+                    document.querySelector('.modal')?.remove();
+                    loadUsersPage();
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    showToast(formatApiError(data) || 'Ошибка сохранения', 'error');
+                }
+            } catch (err) {
+                console.error('updateUserSubmit', err);
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        async function createUserSubmit(e) {
+            e.preventDefault();
+            const form = document.getElementById('formCreateUser');
+            if (!form) return;
+            const email = document.getElementById('newUserEmail')?.value;
+            const username = document.getElementById('newUserUsername')?.value;
+            const password = document.getElementById('newUserPassword')?.value;
+            const departmentId = document.getElementById('newUserDepartment')?.value;
+            const userType = (document.querySelector('input[name="newUserType"]:checked') || {}).value || 'user';
+            const rtMulti = document.getElementById('newUserReportTypes');
+            const reportTypeIds = rtMulti ? Array.from(rtMulti.selectedOptions).map(o => parseInt(o.value, 10)) : [];
+            if (!email || !password) { showToast('Укажите email и пароль', 'error'); return; }
+            if (userType === 'stakeholder' && reportTypeIds.length === 0) {
+                showToast('Для ЗЛ выберите хотя бы один тип отчёта', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/auth/admin/users/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user: { email, username: username || email, password },
+                        user_type: userType,
+                        department_id: departmentId ? parseInt(departmentId, 10) : null,
+                        report_type_ids: userType === 'stakeholder' ? reportTypeIds : []
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Пользователь создан', 'success');
+                    form.reset();
+                } else {
+                    const msg = (data.user && data.user.email && data.user.email[0]) || (data.report_type_ids && data.report_type_ids[0]) || data.detail || (typeof data === 'string' ? data : JSON.stringify(data));
+                    showToast(msg || 'Ошибка', 'error');
+                }
+            } catch (err) {
+                showToast('Ошибка создания пользователя', 'error');
+            }
+        }
+
+        // All Links
+        const STATIC_PAGES = [
+            { url: '/', name: 'Главная (дашборд)' },
+            { url: '/dashboard/', name: 'Дашборд' },
+            { url: '/admin/', name: 'Панель администратора' },
+            { url: '/zl/', name: 'Панель заинтересованного лица (ЗЛ)' },
+            { url: '/user/', name: 'Панель пользователя' },
+            { url: '/auth/', name: 'Авторизация' },
+            { url: '/logout/', name: 'Выход' },
+        ];
+
+        function loadLinks() {
+            const base = window.location.origin;
+            const pagesHtml = STATIC_PAGES.map(p => `
+                <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+                    <a href="${p.url}" target="_blank" rel="noopener" style="color: var(--primary); text-decoration: none;">${base}${p.url}</a>
+                    <span style="color: var(--text-light); margin-left: 0.5rem;">— ${p.name}</span>
+                </li>
+            `).join('');
+            document.getElementById('linksPagesList').innerHTML = pagesHtml;
+
+            let apiHtml = '';
+            if (Object.keys(endpoints).length) {
+                for (const [section, urls] of Object.entries(endpoints)) {
+                    apiHtml += `<h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">${section}</h3><ul style="list-style: none; margin-bottom: 1rem;">`;
+                    for (const [key, url] of Object.entries(urls)) {
+                        const fullUrl = (url.startsWith('http') ? url : base + url).replace(/\{\{id\}\}/g, '1');
+                        apiHtml += `<li style="padding: 0.35rem 0;"><a href="${fullUrl}" target="_blank" rel="noopener" style="color: var(--primary); font-size: 0.9rem;">${url}</a> <span style="color: var(--text-light);">(${key})</span></li>`;
+                    }
+                    apiHtml += '</ul>';
+                }
+            } else {
+                apiHtml = '<p class="empty-state">Список API загружается при открытии дашборда.</p>';
+            }
+            document.getElementById('linksApiList').innerHTML = apiHtml;
+        }
+
+        // Actions
+        async function approveRequest(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/${id}/approve/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Заявка утверждена', 'success');
+                    loadRequests();
+                } else {
+                    showToast('Ошибка утверждения', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function loadDataSource(id) {
+            try {
+                const res = await fetch(`${API_BASE}/datasources/${id}/load/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Загрузка запущена', 'success');
+                    setTimeout(() => loadDataSources(), 2000);
+                } else {
+                    showToast('Ошибка загрузки', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function previewDataSource(id) {
+            try {
+                const res = await fetch(`${API_BASE}/datasources/${id}/preview/`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showModal('Предпросмотр данных', `
+                        <div style="max-height: 400px; overflow: auto;">
+                            <table style="font-size: 0.875rem;">
+                                <thead>
+                                    <tr>
+                                        ${(data.columns || []).map(c => `<th>${c}</th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${(data.rows || []).slice(0, 20).map(row => `
+                                        <tr>
+                                            ${row.map(cell => `<td>${cell}</td>`).join('')}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `);
+                }
+            } catch (error) {
+                showToast('Ошибка предпросмотра', 'error');
+            }
+        }
+
+        async function exportReport(id, format) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/export/?format=${format}`, {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (!res.ok) { showToast('Ошибка экспорта', 'error'); return; }
+                const blob = await res.blob();
+                const name = res.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] || `report_${id}.${format}`;
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                showToast('Файл сохранён', 'success');
+            } catch (e) {
+                showToast('Ошибка экспорта', 'error');
+            }
+        }
+
+        async function viewReport(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/`, { credentials: 'include', headers: getAuthHeaders() });
+                if (!res.ok) { showToast('Ошибка загрузки', 'error'); return; }
+                const r = await res.json();
+                const status = r.approved_at ? 'Утверждён' : r.submitted_at ? 'Отправлен' : 'Черновик';
+                showModal('Отчёт: ' + r.title, `
+                    <p><strong>Тип:</strong> ${r.report_type_info?.name || ''}</p>
+                    <p><strong>Создатель:</strong> ${r.created_by_info?.username || ''}</p>
+                    <p><strong>Дата создания:</strong> ${formatDateTime(r.created_at)}</p>
+                    <p><strong>Статус:</strong> ${status}</p>
+                    ${r.description ? `<p><strong>Описание:</strong><br>${r.description}</p>` : ''}
+                    <div class="actions" style="margin-top:1rem;">
+                        ${!r.submitted_at ? `<button class="btn btn-primary" onclick="submitReport(${r.id}); document.querySelector('.modal')?.remove();">Отправить</button>` : ''}
+                        ${r.submitted_at && !r.approved_at ? `<button class="btn btn-primary" onclick="approveReport(${r.id}); document.querySelector('.modal')?.remove();">Утвердить</button>` : ''}
+                        <button class="btn" onclick="exportReport(${r.id}, 'xlsx')">Скачать Excel</button>
+                        <button class="btn" onclick="exportReport(${r.id}, 'pdf')">Скачать PDF</button>
+                    </div>
+                `);
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function viewRequest(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/${id}/`, { credentials: 'include', headers: getAuthHeaders() });
+                if (!res.ok) { showToast('Ошибка загрузки', 'error'); return; }
+                const r = await res.json();
+                showModal('Заявка: ' + r.title, `
+                    <p><strong>Подразделение:</strong> ${r.department_info?.name || ''}</p>
+                    <p><strong>Тип отчёта:</strong> ${r.report_type_info?.name || ''}</p>
+                    <p><strong>Статус:</strong> ${getStatusLabel(r.status)}</p>
+                    <p><strong>Заявитель:</strong> ${r.requester_info?.username || ''}</p>
+                    <p><strong>Дата:</strong> ${formatDateTime(r.created_at)}</p>
+                    ${r.rejection_reason ? `<p><strong>Причина отклонения:</strong> ${r.rejection_reason}</p>` : ''}
+                    <p><strong>Описание:</strong><br>${r.description || '—'}</p>
+                    <div class="actions" style="margin-top:1rem;">
+                        ${r.can_approve && r.status === 'pending' ? `
+                            <button class="btn btn-primary" onclick="approveRequest(${r.id}); document.querySelector('.modal')?.remove();">Утвердить</button>
+                            <button class="btn btn-danger" onclick="document.querySelector('.modal')?.remove(); rejectRequest(${r.id});">Отклонить</button>
+                        ` : ''}
+                    </div>
+                `);
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function rejectRequest(id) {
+            const reason = prompt('Укажите причину отклонения:');
+            if (reason === null) return;
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/${id}/reject/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ rejection_reason: reason })
+                });
+                if (res.ok) {
+                    showToast('Заявка отклонена', 'success');
+                    loadRequests();
+                } else {
+                    const d = await res.json();
+                    showToast(d.error || 'Ошибка', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function submitReport(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/submit/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Отчёт отправлен', 'success');
+                    loadReports();
+                } else {
+                    const d = await res.json();
+                    showToast(d.error || 'Ошибка', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function approveReport(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/approve/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Отчёт утверждён', 'success');
+                    loadReports();
+                } else {
+                    const d = await res.json();
+                    showToast(d.error || 'Ошибка', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function deleteReport(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Отчёт удалён', 'success');
+                    loadReports();
+                } else {
+                    showToast('Ошибка удаления', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function deleteRequest(id) {
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/${id}/`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Заявка удалена', 'success');
+                    loadRequests();
+                } else {
+                    showToast('Ошибка удаления', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function deleteDataSource(id) {
+            try {
+                const res = await fetch(`${API_BASE}/datasources/${id}/`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    showToast('Источник удалён', 'success');
+                    loadDataSources();
+                } else {
+                    showToast('Ошибка удаления', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        // Modals
+        function showModal(title, content) {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <div class="card-header">
+                        <h2 class="card-title">${title}</h2>
+                        <button type="button" onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                    </div>
+                    ${content}
+                </div>
+            `;
+            modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+            document.getElementById('modalContainer').appendChild(modal);
+        }
+
+        async function showCreateReportModal() {
+            const typesRes = await fetch(`${API_BASE}/reports/report-types/`, { credentials: 'include', headers: getAuthHeaders() });
+            const typesData = await typesRes.json();
+            const types = typesData.results || typesData || [];
+            const options = types.map(t => `<option value="${t.id}">${t.name} (${t.code || ''})</option>`).join('');
+            showModal('Создать отчёт', `
+                <form onsubmit="createReport(event)">
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input type="text" name="title" required placeholder="Название отчёта">
+                    </div>
+                    <div class="form-group">
+                        <label>Тип отчёта</label>
+                        <select name="report_type" required>${options || '<option value="">— Нет типов, создайте в админке —</option>'}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Описание</label>
+                        <textarea name="description" rows="3" placeholder="Описание"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            `);
+        }
+
+        async function showCreateRequestModal() {
+            const [deptRes, typesRes] = await Promise.all([
+                fetch(`${API_BASE}/reports/departments/`, { credentials: 'include', headers: getAuthHeaders() }),
+                fetch(`${API_BASE}/reports/report-types/`, { credentials: 'include', headers: getAuthHeaders() })
+            ]);
+            const deptData = await deptRes.json();
+            const typesData = await typesRes.json();
+            const departments = deptData.results || deptData || [];
+            const types = typesData.results || typesData || [];
+            const deptOpts = departments.map(d => `<option value="${d.id}">${d.name}${d.code ? ' (' + d.code + ')' : ''}</option>`).join('');
+            const typeOpts = types.map(t => `<option value="${t.id}">${t.name} (${t.code || ''})</option>`).join('');
+            showModal('Создать заявку на отчёт', `
+                <form onsubmit="createRequest(event)">
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input type="text" name="title" required placeholder="Название заявки">
+                    </div>
+                    <div class="form-group">
+                        <label>Подразделение</label>
+                        <select name="department" required>${deptOpts || '<option value="">— Нет подразделений —</option>'}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип отчёта</label>
+                        <select name="report_type" required>${typeOpts || '<option value="">— Нет типов —</option>'}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Описание</label>
+                        <textarea name="description" rows="3" required placeholder="Описание"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Приоритет</label>
+                        <select name="priority"><option value="1">Высокий</option><option value="2" selected>Средний</option><option value="3">Низкий</option></select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать заявку</button>
+                </form>
+            `);
+        }
+
+        function showCreateDataSourceModal() {
+            showModal('Добавить источник данных', `
+                <form onsubmit="createDataSource(event)">
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип</label>
+                        <select name="type" required>
+                            <option value="csv">CSV файл</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Путь к файлу</label>
+                        <input type="text" name="path" placeholder="/path/to/file.csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Добавить</button>
+                </form>
+            `);
+        }
+
+        async function createReport(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const title = (formData.get('title') || '').trim();
+            const report_type = formData.get('report_type');
+            if (!title) { showToast('Введите название отчёта', 'error'); return; }
+            if (!report_type) { showToast('Выберите тип отчёта', 'error'); return; }
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title: title,
+                        report_type: parseInt(report_type, 10),
+                        description: (formData.get('description') || '').trim()
+                    })
+                });
+                let data;
+                try {
+                    data = await res.json();
+                } catch (_) {
+                    showToast(res.status === 500 ? 'Ошибка сервера' : 'Ошибка создания', 'error');
+                    return;
+                }
+                if (res.ok) {
+                    showToast('Отчёт создан', 'success');
+                    document.querySelector('.modal')?.remove();
+                    loadReports();
+                } else {
+                    const msg = formatApiError(data);
+                    showToast(msg || 'Ошибка создания отчёта', 'error');
+                }
+            } catch (err) {
+                console.error('createReport', err);
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        function formatApiError(data) {
+            if (!data || typeof data !== 'object') return '';
+            if (typeof data.detail === 'string') return data.detail;
+            if (Array.isArray(data.detail)) return data.detail[0] || '';
+            const parts = [];
+            for (const [key, val] of Object.entries(data)) {
+                if (Array.isArray(val) && val[0]) parts.push(val[0]);
+                else if (typeof val === 'string') parts.push(val);
+            }
+            return parts.join('. ') || '';
+        }
+
+        async function createRequest(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const title = (formData.get('title') || '').trim();
+            const description = (formData.get('description') || '').trim();
+            const department = formData.get('department');
+            const report_type = formData.get('report_type');
+            if (!title) { showToast('Введите название заявки', 'error'); return; }
+            if (!department || !report_type) { showToast('Выберите подразделение и тип отчёта', 'error'); return; }
+            const deptId = parseInt(department, 10);
+            const typeId = parseInt(report_type, 10);
+            if (isNaN(deptId) || isNaN(typeId)) { showToast('Неверные подразделение или тип отчёта', 'error'); return; }
+            try {
+                const res = await fetch(`${API_BASE}/reports/report-requests/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title: title,
+                        department: deptId,
+                        report_type: typeId,
+                        description: description,
+                        priority: parseInt(formData.get('priority') || '2', 10)
+                    })
+                });
+                let data;
+                try { data = await res.json(); } catch (_) { data = {}; }
+                if (res.ok) {
+                    showToast('Заявка создана', 'success');
+                    document.querySelector('.modal')?.remove();
+                    loadRequests();
+                } else {
+                    const msg = formatApiError(data);
+                    showToast(msg || 'Ошибка создания заявки', 'error');
+                }
+            } catch (err) {
+                console.error('createRequest', err);
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        async function createDataSource(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            try {
+                const res = await fetch(`${API_BASE}/datasources/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: formData.get('name'),
+                        type: formData.get('type'),
+                        connection_data: {path: formData.get('path')}
+                    })
+                });
+                if (res.ok) {
+                    showToast('Источник добавлен', 'success');
+                    document.querySelector('.modal').remove();
+                    loadDataSources();
+                } else {
+                    showToast('Ошибка создания', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        // Utils
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast toast-${type} active`;
+            setTimeout(() => toast.classList.remove('active'), 3000);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            return new Date(dateStr).toLocaleDateString('ru-RU');
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '—';
+            return new Date(dateStr).toLocaleString('ru-RU');
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'pending': 'Ожидает',
+                'approved': 'Утверждено',
+                'rejected': 'Отклонено',
+                'in_progress': 'В работе',
+                'completed': 'Завершено'
+            };
+            return labels[status] || status;
+        }
+
+        function getStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'warning',
+                'approved': 'success',
+                'rejected': 'danger',
+                'in_progress': 'info',
+                'completed': 'success'
+            };
+            return classes[status] || 'info';
+        }
+
+        function getActionLabel(action) {
+            const labels = {
+                'create': 'Создание',
+                'update': 'Обновление',
+                'delete': 'Удаление',
+                'view': 'Просмотр',
+                'approve': 'Утверждение',
+                'reject': 'Отклонение'
+            };
+            return labels[action] || action;
+        }
+    </script>
+</body>
+</html>

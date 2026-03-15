@@ -1,10 +1,12 @@
-from django.shortcuts import render
+from django.db.models import Q
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import models
-from .models import PersonalData, Department, ReportType, Report, ReportRequest
+from kripton.guide.models import Department
+from .models import PersonalData, ReportType, Report, ReportRequest
+from .services import ReportService
+from kripton.permissions_services import PermissionService
 from .serializers import (
     DepartmentSerializer,
     ReportTypeSerializer,
@@ -58,6 +60,13 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         serializer = serializer_class(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'], url_path='check-access')
+    def check_access(self, request, pk=None):
+        """Проверка доступа к подразделению (PermissionService.check_department_access)."""
+        department = self.get_object()
+        can = PermissionService.check_department_access(request.user, department)
+        return Response({'can_access': can})
+
 
 class ReportTypeViewSet(viewsets.ModelViewSet):
     serializer_class = ReportTypeSerializer
@@ -94,11 +103,21 @@ class ReportViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_superuser or user.is_staff:
             return Report.objects.all()
-        queryset = Report.objects.filter(created_by=user)
+        # Заинтересованное лицо: отчёты только по своим типам (не видит отчёты других ЗЛ)
         stakeholder_types = ReportType.objects.filter(stakeholders=user)
         if stakeholder_types.exists():
-            queryset = queryset | Report.objects.filter(report_type__in=stakeholder_types)
-        return queryset.distinct()
+            return Report.objects.filter(report_type__in=stakeholder_types).distinct()
+        # Обычный пользователь: только свои отчёты и отчёты по заявкам, назначенным ему
+        return Report.objects.filter(
+            Q(created_by=user) | Q(source_request__assigned_to=user)
+        ).distinct()
+
+    @action(detail=True, methods=['get'], url_path='check-access')
+    def check_access(self, request, pk=None):
+        """Проверка доступа к отчёту (PermissionService.check_report_access)."""
+        report = self.get_object()
+        can = PermissionService.check_report_access(request.user, report)
+        return Response({'can_access': can})
     
     def perform_create(self, serializer):
         report = serializer.save(created_by=self.request.user)
@@ -138,14 +157,10 @@ class ReportViewSet(viewsets.ModelViewSet):
     def submit(self, request, pk=None):
         """ReportSubmitView — отправка отчета."""
         report = self.get_object()
-        if report.submitted_at:
-            return Response(
-                {'error': 'Отчет уже отправлен'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        from django.utils import timezone
-        report.submitted_at = timezone.now()
-        report.save(update_fields=['submitted_at'])
+        try:
+            ReportService.submit_report(report)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         from kripton.audit import log_audit
         log_audit(
             request=request,
@@ -154,6 +169,11 @@ class ReportViewSet(viewsets.ModelViewSet):
             resource_id=str(report.pk),
             details={'title': report.title, 'action': 'submit'},
         )
+        try:
+            from kripton.realtime_services import notify_report_status
+            notify_report_status(report, 'report_submitted', {'by': request.user.username})
+        except Exception:
+            pass
         serializer = self.get_serializer(report)
         return Response(serializer.data)
     
@@ -169,10 +189,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                     {'error': 'Недостаточно прав для утверждения отчета'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-        from django.utils import timezone
-        report.approved_at = timezone.now()
-        report.approved_by = user
-        report.save(update_fields=['approved_at', 'approved_by'])
+        ReportService.approve_report(report, user)
         from kripton.audit import log_audit
         log_audit(
             request=request,
@@ -181,6 +198,11 @@ class ReportViewSet(viewsets.ModelViewSet):
             resource_id=str(report.pk),
             details={'title': report.title},
         )
+        try:
+            from kripton.realtime_services import notify_report_status
+            notify_report_status(report, 'report_approved', {'by': user.username})
+        except Exception:
+            pass
         serializer = self.get_serializer(report)
         return Response(serializer.data)
     
@@ -204,9 +226,13 @@ class ReportViewSet(viewsets.ModelViewSet):
         fmt = (request.query_params.get('format') or 'xlsx').lower()
         if fmt not in ('pdf', 'xlsx', 'docx'):
             fmt = 'xlsx'
-        from .export import export_report
         try:
-            content_type, filename, content = export_report(report, fmt)
+            if fmt == 'pdf':
+                content_type, filename, content = ReportService.generate_pdf(report)
+            elif fmt == 'docx':
+                content_type, filename, content = ReportService.generate_word(report)
+            else:
+                content_type, filename, content = ReportService.generate_excel(report)
         except Exception as e:
             return Response(
                 {'error': f'Ошибка экспорта: {str(e)}'},
@@ -216,6 +242,66 @@ class ReportViewSet(viewsets.ModelViewSet):
         response = HttpResponse(content, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+    @action(detail=True, methods=['get'], url_path='validate')
+    def validate_report(self, request, pk=None):
+        """ReportValidateView — валидация данных отчёта."""
+        report = self.get_object()
+        ok, errors = ReportService.validate_report(report)
+        return Response({'valid': ok, 'errors': errors})
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export_list(self, request):
+        """
+        Экспорт списка отчётов (с учётом фильтров) в CSV или Excel.
+        Query: format=csv | xlsx.
+        """
+        queryset = self.get_queryset()[:5000]
+        fmt = (request.query_params.get('format') or 'csv').lower()
+        if fmt not in ('csv', 'xlsx'):
+            fmt = 'csv'
+        if fmt == 'csv':
+            import csv
+            from io import StringIO
+            buf = StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(['id', 'title', 'report_type', 'created_by', 'created_at', 'submitted_at', 'approved_at'])
+            for r in queryset.select_related('report_type', 'created_by'):
+                writer.writerow([
+                    r.id, r.title, r.report_type.name if r.report_type_id else '',
+                    getattr(r.created_by, 'username', ''), r.created_at.isoformat() if r.created_at else '',
+                    r.submitted_at.isoformat() if r.submitted_at else '', r.approved_at.isoformat() if r.approved_at else '',
+                ])
+            buf.seek(0)
+            from django.http import HttpResponse
+            resp = HttpResponse(buf.getvalue().encode('utf-8-sig'), content_type='text/csv; charset=utf-8-sig')
+            resp['Content-Disposition'] = 'attachment; filename="reports.csv"'
+            return resp
+        try:
+            import openpyxl
+            from io import BytesIO
+        except ImportError:
+            return Response({'error': 'Установите openpyxl для экспорта в Excel'}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Отчёты'
+        for col, h in enumerate(['id', 'title', 'report_type', 'created_by', 'created_at', 'submitted_at', 'approved_at'], 1):
+            ws.cell(row=1, column=col, value=h)
+        for row_idx, r in enumerate(queryset.select_related('report_type', 'created_by'), 2):
+            ws.cell(row=row_idx, column=1, value=r.id)
+            ws.cell(row=row_idx, column=2, value=r.title)
+            ws.cell(row=row_idx, column=3, value=r.report_type.name if r.report_type_id else '')
+            ws.cell(row=row_idx, column=4, value=getattr(r.created_by, 'username', ''))
+            ws.cell(row=row_idx, column=5, value=r.created_at.isoformat() if r.created_at else '')
+            ws.cell(row=row_idx, column=6, value=r.submitted_at.isoformat() if r.submitted_at else '')
+            ws.cell(row=row_idx, column=7, value=r.approved_at.isoformat() if r.approved_at else '')
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        from django.http import HttpResponse
+        resp = HttpResponse(buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = 'attachment; filename="reports.xlsx"'
+        return resp
 
 
 class ReportRequestViewSet(viewsets.ModelViewSet):
@@ -229,34 +315,21 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        
-        # Администраторы и менеджеры видят все
+
+        # Админ: все заявки
         if user.is_superuser or user.is_staff:
             return ReportRequest.objects.all()
-        
-        # Проверяем группы
         from django.contrib.auth.models import Group
-        is_manager = user.groups.filter(name='Менеджеры').exists()
-        if is_manager:
+        if user.groups.filter(name='Менеджеры').exists():
             return ReportRequest.objects.all()
-        
-        # Обычный пользователь видит:
-        # 1. Свои запросы
-        # 2. Запросы своего отдела (если он руководитель)
-        # 3. Запросы типов отчетов, где он заинтересованное лицо
-        queryset = ReportRequest.objects.filter(requester=user)
-        
-        # Если пользователь - руководитель отдела
-        managed_departments = Department.objects.filter(head_of_department=user)
-        if managed_departments.exists():
-            queryset = queryset | ReportRequest.objects.filter(department__in=managed_departments)
-        
-        # Если пользователь - заинтересованное лицо
+
+        # Заинтересованное лицо: только заявки по типам отчётов, где он ЗЛ (не видит данные других ЗЛ)
         stakeholder_types = ReportType.objects.filter(stakeholders=user)
         if stakeholder_types.exists():
-            queryset = queryset | ReportRequest.objects.filter(report_type__in=stakeholder_types)
-        
-        return queryset.distinct()
+            return ReportRequest.objects.filter(report_type__in=stakeholder_types).distinct()
+
+        # Обычный пользователь (исполнитель): только заявки, назначенные ему (не видит задания коллег)
+        return ReportRequest.objects.filter(assigned_to=user)
     
     def perform_create(self, serializer):
         serializer.save(requester=self.request.user)
@@ -267,12 +340,23 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
         report_request = self.get_object()
         try:
             report_request.approve(request.user)
+            if request.user.is_staff or request.user.is_superuser:
+                aid = request.data.get('assigned_to')
+                if aid is not None:
+                    from kripton.authpage.models import User as AuthUser
+                    report_request.assigned_to = AuthUser.objects.filter(pk=aid).first()
+                    report_request.save(update_fields=['assigned_to'])
             from kripton.audit import log_audit
             log_audit(request=request, action_type='approve', resource_type='report_request', resource_id=str(report_request.pk), details={'title': report_request.title})
+            try:
+                from kripton.realtime_services import notify_report_request_status
+                notify_report_request_status(report_request, 'request_approved')
+            except Exception:
+                pass
             return Response({'message': 'Запрос утвержден', 'status': report_request.status}, status=status.HTTP_200_OK)
         except PermissionError as e:
             return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
-    
+
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """Отклонение запроса (POST body: rejection_reason)."""
@@ -282,6 +366,11 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
             report_request.reject(request.user, rejection_reason=reason)
             from kripton.audit import log_audit
             log_audit(request=request, action_type='reject', resource_type='report_request', resource_id=str(report_request.pk), details={'title': report_request.title, 'rejection_reason': reason})
+            try:
+                from kripton.realtime_services import notify_report_request_status
+                notify_report_request_status(report_request, 'request_rejected', {'rejection_reason': reason})
+            except Exception:
+                pass
             return Response({'message': 'Запрос отклонен', 'status': report_request.status}, status=status.HTTP_200_OK)
         except PermissionError as e:
             return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
@@ -299,6 +388,9 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
             if action_type == 'approve':
                 try:
                     report_request.approve(user)
+                    if user.is_staff or user.is_superuser:
+                        report_request.assigned_to = serializer.validated_data.get('assigned_to')
+                        report_request.save(update_fields=['assigned_to'])
                     from kripton.audit import log_audit
                     log_audit(
                         request=request,
@@ -307,6 +399,11 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
                         resource_id=str(report_request.pk),
                         details={'title': report_request.title},
                     )
+                    try:
+                        from kripton.realtime_services import notify_report_request_status
+                        notify_report_request_status(report_request, 'request_approved')
+                    except Exception:
+                        pass
                     return Response(
                         {'message': 'Запрос утвержден', 'status': report_request.status},
                         status=status.HTTP_200_OK
@@ -329,6 +426,11 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
                         resource_id=str(report_request.pk),
                         details={'title': report_request.title, 'rejection_reason': rejection_reason},
                     )
+                    try:
+                        from kripton.realtime_services import notify_report_request_status
+                        notify_report_request_status(report_request, 'request_rejected', {'rejection_reason': rejection_reason})
+                    except Exception:
+                        pass
                     return Response(
                         {'message': 'Запрос отклонен', 'status': report_request.status},
                         status=status.HTTP_200_OK
@@ -362,13 +464,91 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
         """Только мои запросы"""
         queryset = self.get_queryset().filter(requester=request.user)
         page = self.paginate_queryset(queryset)
-        
+
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='my-departments')
+    def my_departments(self, request):
+        """Подразделения текущего пользователя (PermissionService.get_user_departments)."""
+        departments = PermissionService.get_user_departments(request.user)
+        from .serializers import DepartmentSerializer
+        serializer = DepartmentSerializer(departments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export_list(self, request):
+        """
+        Экспорт списка заявок (с учётом фильтров) в CSV или Excel.
+        Query: format=csv | xlsx (по умолчанию csv).
+        """
+        queryset = self.get_queryset()[:5000]
+        fmt = (request.query_params.get('format') or 'csv').lower()
+        if fmt not in ('csv', 'xlsx'):
+            fmt = 'csv'
+
+        if fmt == 'csv':
+            import csv
+            from io import StringIO
+            buf = StringIO()
+            writer = csv.writer(buf)
+            writer.writerow([
+                'id', 'title', 'requester', 'department', 'report_type', 'status',
+                'created_at', 'approved_at', 'deadline', 'priority',
+            ])
+            for r in queryset.select_related('requester', 'department', 'report_type'):
+                writer.writerow([
+                    r.id, r.title, getattr(r.requester, 'username', ''),
+                    r.department.name if r.department_id else '',
+                    r.report_type.name if r.report_type_id else '',
+                    r.status, r.created_at.isoformat() if r.created_at else '',
+                    r.approved_at.isoformat() if r.approved_at else '',
+                    r.deadline.isoformat() if r.deadline else '', r.priority or '',
+                ])
+            buf.seek(0)
+            from django.http import HttpResponse
+            resp = HttpResponse(buf.getvalue().encode('utf-8-sig'), content_type='text/csv; charset=utf-8-sig')
+            resp['Content-Disposition'] = 'attachment; filename="report_requests.csv"'
+            return resp
+
+        # xlsx
+        try:
+            import openpyxl
+            from io import BytesIO
+        except ImportError:
+            return Response(
+                {'error': 'Для экспорта в Excel установите openpyxl'},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Заявки'
+        headers = ['id', 'title', 'requester', 'department', 'report_type', 'status', 'created_at', 'approved_at', 'deadline', 'priority']
+        for col, h in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=h)
+        for row_idx, r in enumerate(queryset.select_related('requester', 'department', 'report_type'), 2):
+            ws.cell(row=row_idx, column=1, value=r.id)
+            ws.cell(row=row_idx, column=2, value=r.title)
+            ws.cell(row=row_idx, column=3, value=getattr(r.requester, 'username', ''))
+            ws.cell(row=row_idx, column=4, value=r.department.name if r.department_id else '')
+            ws.cell(row=row_idx, column=5, value=r.report_type.name if r.report_type_id else '')
+            ws.cell(row=row_idx, column=6, value=r.status)
+            ws.cell(row=row_idx, column=7, value=r.created_at.isoformat() if r.created_at else '')
+            ws.cell(row=row_idx, column=8, value=r.approved_at.isoformat() if r.approved_at else '')
+            ws.cell(row=row_idx, column=9, value=r.deadline.isoformat() if r.deadline else '')
+            ws.cell(row=row_idx, column=10, value=r.priority or '')
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        from django.http import HttpResponse
+        resp = HttpResponse(buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = 'attachment; filename="report_requests.xlsx"'
+        return resp
+
 
 class PersonalDataViewSet(viewsets.ModelViewSet):
     queryset = PersonalData.objects.all()

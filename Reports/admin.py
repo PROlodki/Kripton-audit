@@ -1,13 +1,6 @@
 from django.contrib import admin
-from .models import PersonalData, Department, ReportType, Report, ReportRequest
-
-
-@admin.register(Department)
-class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'head_of_department', 'created_at')
-    list_filter = ('created_at', 'is_active')
-    search_fields = ('name', 'code', 'head_of_department__username')
-    raw_id_fields = ('head_of_department', 'parent')
+from kripton.guide.models import Department
+from .models import PersonalData, ReportType, Report, ReportRequest
 
 
 @admin.register(ReportType)
