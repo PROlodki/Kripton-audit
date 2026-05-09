@@ -184,7 +184,7 @@ class ReportViewSet(viewsets.ModelViewSet):
         user = request.user
         if not (user.is_superuser or user.is_staff):
             from django.contrib.auth.models import Group
-            if not user.groups.filter(name__in=['Администраторы', 'Менеджеры']).exists():
+            if not user.groups.filter(name__in=['Менеджеры']).exists(): # Убрал 'Администраторы' из тех кто может утвердить отчет
                 return Response(
                     {'error': 'Недостаточно прав для утверждения отчета'},
                     status=status.HTTP_403_FORBIDDEN,
@@ -221,15 +221,13 @@ class ReportViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def export(self, request, pk=None):
-        """ReportExportView — экспорт в PDF/Excel/Word (формат в query: format=pdf|xlsx|docx)."""
+        """ReportExportView — экспорт в Excel/Word (формат в query: format=xlsx|docx)."""
         report = self.get_object()
         fmt = (request.query_params.get('format') or 'xlsx').lower()
-        if fmt not in ('pdf', 'xlsx', 'docx'):
+        if fmt not in ('xlsx', 'docx'):
             fmt = 'xlsx'
         try:
-            if fmt == 'pdf':
-                content_type, filename, content = ReportService.generate_pdf(report)
-            elif fmt == 'docx':
+            if fmt == 'docx':
                 content_type, filename, content = ReportService.generate_word(report)
             else:
                 content_type, filename, content = ReportService.generate_excel(report)

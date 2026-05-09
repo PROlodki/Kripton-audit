@@ -399,8 +399,7 @@
     <div class="container">
         <!-- Sidebar -->
         <nav class="sidebar">
-            {% block sidebar_extra %}{% endblock %}
-            <a href="#" class="nav-item active" data-page="dashboard" data-allowed-roles="admin,stakeholder,user">
+            <a href="#" class="nav-item active" data-page="dashboard" data-allowed-roles="admin,stakeholder">
                 <span>📈</span> Дашборд
             </a>
             <a href="#" class="nav-item" data-page="reports" data-allowed-roles="admin,stakeholder,user">
@@ -408,9 +407,6 @@
             </a>
             <a href="#" class="nav-item" data-page="requests" data-allowed-roles="admin,stakeholder,user">
                 <span>📋</span> Заявки
-            </a>
-            <a href="#" class="nav-item" data-page="datasources" data-allowed-roles="admin">
-                <span>💾</span> Источники данных
             </a>
             <a href="#" class="nav-item" data-page="audit" data-allowed-roles="admin">
                 <span>🔍</span> Лог аудита
@@ -432,7 +428,7 @@
         <!-- Main Content -->
         <main class="main-content">
             <!-- Dashboard Page -->
-            <div id="page-dashboard" class="page active" data-allowed-roles="admin,stakeholder,user">
+            <div id="page-dashboard" class="page active" data-allowed-roles="admin,stakeholder">
                 <h1 class="page-title">Дашборд</h1>
                 <div class="stats-grid" id="dashboardStats"></div>
                 <div class="card">
@@ -497,29 +493,7 @@
             </div>
 
             <!-- DataSources Page -->
-            <div id="page-datasources" class="page" style="display: none;" data-allowed-roles="admin">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                    <h1 class="page-title">Источники данных</h1>
-                    <button class="btn btn-primary" onclick="showCreateDataSourceModal()">+ Добавить источник</button>
-                </div>
-                <div class="card">
-                    <div class="table-container">
-                        <table id="datasourcesTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Название</th>
-                                    <th>Тип</th>
-                                    <th>Статус загрузки</th>
-                                    <th>Дата создания</th>
-                                    <th>Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody id="datasourcesTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <!-- Убрал Страницу источников данных за не надобностью-->
 
             <!-- Audit Page -->
             <div id="page-audit" class="page" style="display: none;" data-allowed-roles="admin">
@@ -558,6 +532,7 @@
                                     <th>Код</th>
                                     <th>Руководитель</th>
                                     <th>Статус</th>
+                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="departmentsTableBody"></tbody>
@@ -666,6 +641,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await initApp();
             setupNavigation();
+            setInterval(() => {
+            const usersPage =
+                document.getElementById('page-users');
+            if (
+                usersPage &&
+                usersPage.style.display !== 'none'
+            ) {
+                loadUsersPage();
+            }
+        }, 5000);
         });
 
         // Initialize App
@@ -1132,6 +1117,7 @@
                     <td>${d.code || '—'}</td>
                     <td>${d.head_info?.username || '—'}</td>
                     <td><span class="badge badge-${d.is_active ? 'success' : 'danger'}">${d.is_active ? 'Активно' : 'Неактивно'}</span></td>
+                    <td class="actions"> <button class="btn btn-sm btn-primary" onclick="showEditDepartmentModal(${d.id})"> Редактировать </button> </td>
                 </tr>
             `).join('');
         }
@@ -1171,8 +1157,8 @@
                         <input type="text" name="code" required placeholder="Уникальный код (латиница, цифры)">
                     </div>
                     <div class="form-group">
-                        <label>Описание</label>
-                        <textarea name="description" rows="2" placeholder="Описание типа отчёта"></textarea>
+                        <label>Описание <span style="color: var(--danger);">*</span></label>
+                        <textarea name="description" rows="2" placeholder="Описание типа отчёта" style="resize: none;"></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary">Создать</button>
                 </form>
@@ -1263,10 +1249,189 @@
                     <td><span class="badge badge-info">${roleLabel(u.role)}</span></td>
                     <td>${escapeHtml(deptName(u.department_id))}</td>
                     <td style="max-width: 200px;">${escapeHtml(typesNames(u.report_type_ids))}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick="showEditUserModal(${u.id})">Редактировать</button></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="showEditUserModal(${u.id})">Редактировать</button> <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})"> Удалить </button></td>
                 </tr>
             `).join('');
         }
+        async function deleteUser(id) {
+            if (!confirm('Удалить пользователя?')) return;
+            try {
+                const res = await fetch(
+                    `${API_BASE}/auth/admin/users/${id}/`,
+                    {
+                        method: 'DELETE',
+                        credentials: 'include',
+                        headers: getAuthHeaders()
+                    }
+                );
+                if (res.ok) {
+                    showToast('Пользователь удалён', 'success');
+                    loadUsersPage();
+                } else {
+                    showToast('Ошибка удаления', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Ошибка', 'error');
+            }
+        }
+
+        async function showEditDepartmentModal(id) {
+            try {
+                const [deptRes, allDeptRes, usersRes] = await Promise.all([
+                    fetch(`${API_BASE}/reports/departments/${id}/`, {
+                        credentials: 'include',
+                        headers: getAuthHeaders()
+                    }),
+                    fetch(`${API_BASE}/reports/departments/`, {
+                        credentials: 'include',
+                        headers: getAuthHeaders()
+                    }),
+                    fetch(`${API_BASE}/auth/admin/users/`, {
+                        credentials: 'include',
+                        headers: getAuthHeaders()
+                    })
+                ]);
+                if (!deptRes.ok) {
+                    showToast('Ошибка загрузки подразделения', 'error');
+                    return;
+                }
+                const department = await deptRes.json();
+                const allDeptData = await allDeptRes.json();
+                const usersData = await usersRes.json();
+                const departments = allDeptData.results || allDeptData || [];
+                const users = usersData.results || [];
+                const parentOptions =
+                    '<option value="">— Без родителя —</option>' +
+                    departments
+                        .filter(d => d.id !== department.id)
+                        .map(d => `
+                            <option
+                                value="${d.id}"
+                                ${department.parent === d.id ? 'selected' : ''}>
+                                ${d.name}
+                            </option>
+                        `).join('');
+                const userOptions =
+                    '<option value="">— Без руководителя —</option>' +
+                    users.map(u => `
+                        <option
+                            value="${u.id}"
+                            ${department.head_of_department === u.id ? 'selected' : ''}>
+                            ${u.username || u.email}
+                        </option>
+                    `).join('');
+                showModal(
+                    'Редактировать подразделение',
+                    `
+                    <form onsubmit="updateDepartment(event, ${department.id})">
+                        <div class="form-group">
+                            <label>Название</label>
+                            <input
+                                type="text"
+                                name="name"
+                                required
+                                value="${department.name || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Код</label>
+                            <input
+                                type="text"
+                                name="code"
+                                value="${department.code || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Описание</label>
+                            <textarea
+                                name="description"
+                                rows="3"
+                                style="resize: none;">${department.description || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Родительское подразделение</label>
+                            <select name="parent">
+                                ${parentOptions}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Руководитель</label>
+                            <select name="head_of_department">
+                                ${userOptions}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="is_active"
+                                    ${department.is_active ? 'checked' : ''}>
+                                Активно
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            Сохранить
+                        </button>
+                    </form>
+                    `
+                );
+            } catch (e) {
+                console.error(e);
+                showToast(
+                    'Ошибка открытия формы',
+                    'error'
+                );
+            }
+        }
+
+    async function updateDepartment(event, id) {
+        event.preventDefault();
+        const form = event.target;
+        try {
+            const body = {
+                name: form.name.value.trim(),
+                code: form.code.value.trim(),
+                description: form.description.value.trim(),
+                is_active: form.is_active.checked
+            };
+            if (form.parent.value) {
+                body.parent = parseInt(form.parent.value);
+            }
+            if (form.head_of_department.value) {
+                body.head_of_department =
+                    parseInt(form.head_of_department.value);
+            }
+            const res = await fetch(
+                `${API_BASE}/reports/departments/${id}/`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(body)
+                }
+            );
+            const data = await res.json();
+            console.log(data);
+            if (res.ok) {
+                showToast(
+                    'Подразделение обновлено',
+                    'success'
+                );
+                document.querySelector('.modal')?.remove();
+                loadDepartments();
+            } else {
+                showToast(
+                    JSON.stringify(data),
+                    'error'
+                );
+            }
+        } catch (e) {
+            console.error(e);
+            showToast(
+                'Ошибка обновления',
+                'error'
+            );
+        }
+    }
 
         async function showEditUserModal(userId) {
             try {
@@ -1698,7 +1863,7 @@
                     </div>
                     <div class="form-group">
                         <label>Описание</label>
-                        <textarea name="description" rows="3" placeholder="Описание"></textarea>
+                        <textarea name="description" rows="3" placeholder="Описание" style="resize: none;"></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary">Создать</button>
                 </form>
@@ -1716,7 +1881,7 @@
             const types = typesData.results || typesData || [];
             const deptOpts = departments.map(d => `<option value="${d.id}">${d.name}${d.code ? ' (' + d.code + ')' : ''}</option>`).join('');
             const typeOpts = types.map(t => `<option value="${t.id}">${t.name} (${t.code || ''})</option>`).join('');
-            showModal('Создать заявку на отчёт', `
+            showModal('Создать заявку на    отчёт', `
                 <form onsubmit="createRequest(event)">
                     <div class="form-group">
                         <label>Название</label>
@@ -1732,7 +1897,7 @@
                     </div>
                     <div class="form-group">
                         <label>Описание</label>
-                        <textarea name="description" rows="3" required placeholder="Описание"></textarea>
+                        <textarea name="description" rows="3" required placeholder="Описание" style="resize: none;"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Приоритет</label>

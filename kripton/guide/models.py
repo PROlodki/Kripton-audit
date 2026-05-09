@@ -66,6 +66,8 @@ class Department(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
+    #members = models.
+
     class Meta:
         verbose_name = 'Подразделение'
         verbose_name_plural = 'Подразделения'
