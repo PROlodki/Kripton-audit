@@ -1,6 +1,7 @@
 from django.db.models import Q
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from kripton.guide.models import Department
@@ -88,6 +89,7 @@ class ReportTypeViewSet(viewsets.ModelViewSet):
 
 class ReportViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['report_type', 'created_by']
     search_fields = ['title', 'description']
@@ -221,9 +223,9 @@ class ReportViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def export(self, request, pk=None):
-        """ReportExportView — экспорт в Excel/Word (формат в query: format=xlsx|docx)."""
+        """ReportExportView — экспорт в Excel/Word (query: export_format=xlsx|docx, не «format» — зарезервировано в DRF)."""
         report = self.get_object()
-        fmt = (request.query_params.get('format') or 'xlsx').lower()
+        fmt = (request.query_params.get('export_format') or 'xlsx').lower()
         if fmt not in ('xlsx', 'docx'):
             fmt = 'xlsx'
         try:
@@ -236,10 +238,40 @@ class ReportViewSet(viewsets.ModelViewSet):
                 {'error': f'Ошибка экспорта: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        from django.http import HttpResponse
-        response = HttpResponse(content, content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+        from io import BytesIO
+
+        from django.http import FileResponse
+
+        buf = BytesIO(content)
+        buf.seek(0)
+        return FileResponse(
+            buf,
+            as_attachment=True,
+            filename=filename,
+            content_type=content_type,
+        )
+
+    @action(detail=True, methods=['post'], url_path='upload-file')
+    def upload_file(self, request, pk=None):
+        """Загрузка файла отчёта (.xlsx / .docx) в поле Report.file."""
+        report = self.get_object()
+        f = request.FILES.get('file')
+        if not f:
+            return Response({'error': 'Нет файла (поле file)'}, status=status.HTTP_400_BAD_REQUEST)
+        name = (getattr(f, 'name', '') or '').lower()
+        if not (name.endswith('.xlsx') or name.endswith('.docx')):
+            return Response({'error': 'Разрешены только .xlsx и .docx'}, status=status.HTTP_400_BAD_REQUEST)
+        report.file.save(f.name, f, save=True)
+        from kripton.audit import log_audit
+        log_audit(
+            request=request,
+            action_type='update',
+            resource_type='report',
+            resource_id=str(report.pk),
+            details={'title': report.title, 'action': 'upload_file', 'filename': f.name},
+        )
+        serializer = self.get_serializer(report)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='validate')
     def validate_report(self, request, pk=None):
@@ -248,14 +280,15 @@ class ReportViewSet(viewsets.ModelViewSet):
         ok, errors = ReportService.validate_report(report)
         return Response({'valid': ok, 'errors': errors})
 
-    @action(detail=False, methods=['get'], url_path='export')
+    @action(detail=False, methods=['get'], url_path='bulk-export')
     def export_list(self, request):
         """
         Экспорт списка отчётов (с учётом фильтров) в CSV или Excel.
-        Query: format=csv | xlsx.
+        Query: export_format=csv | xlsx.
+        URL: GET .../reports/bulk-export/ (не путать с .../reports/<id>/export/).
         """
         queryset = self.get_queryset()[:5000]
-        fmt = (request.query_params.get('format') or 'csv').lower()
+        fmt = (request.query_params.get('export_format') or 'csv').lower()
         if fmt not in ('csv', 'xlsx'):
             fmt = 'csv'
         if fmt == 'csv':
@@ -482,10 +515,10 @@ class ReportRequestViewSet(viewsets.ModelViewSet):
     def export_list(self, request):
         """
         Экспорт списка заявок (с учётом фильтров) в CSV или Excel.
-        Query: format=csv | xlsx (по умолчанию csv).
+        Query: export_format=csv | xlsx (по умолчанию csv).
         """
         queryset = self.get_queryset()[:5000]
-        fmt = (request.query_params.get('format') or 'csv').lower()
+        fmt = (request.query_params.get('export_format') or 'csv').lower()
         if fmt not in ('csv', 'xlsx'):
             fmt = 'csv'
 

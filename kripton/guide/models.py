@@ -64,9 +64,13 @@ class Department(models.Model):
         verbose_name='Активно'
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    employees = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through='DepartmentEmployee',
+        related_name='departments'
+    )
 
-    #members = models.
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
     class Meta:
         verbose_name = 'Подразделение'
@@ -75,3 +79,22 @@ class Department(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name
+
+
+class DepartmentEmployee(models.Model):
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE
+    )
+
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE
+    )
+
+    position = models.CharField(max_length=255, blank=True)
+
+    hired_at = models.DateField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('department', 'employee')

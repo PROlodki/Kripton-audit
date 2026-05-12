@@ -1,7 +1,17 @@
 """
 Экспорт отчёта в файл (Excel, PDF, Word).
 """
+import re
 from io import BytesIO
+
+
+def _xlsx_cell_str(val, max_len=32767):
+    """Убирает символы, из‑за которых openpyxl бросает IllegalCharacterError."""
+    if val is None:
+        return ''
+    s = str(val)
+    s = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', s)
+    return s[:max_len]
 
 
 def export_report(report, fmt):
@@ -28,35 +38,42 @@ def _export_xlsx(report):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Отчет'
-    ws['A1'] = report.title
+    ws['A1'] = _xlsx_cell_str(report.title)
     ws['A1'].font = Font(bold=True)
     row = 2
     ws.cell(row=row, column=1, value='Тип отчета:')
-    ws.cell(row=row, column=2, value=report.report_type.name if report.report_type_id else '')
+    ws.cell(row=row, column=2, value=_xlsx_cell_str(
+        report.report_type.name if report.report_type_id else ''
+    ))
     row += 1
     ws.cell(row=row, column=1, value='Описание:')
-    ws.cell(row=row, column=2, value=report.description or '')
+    ws.cell(row=row, column=2, value=_xlsx_cell_str(report.description or ''))
     row += 2
     if report.data and isinstance(report.data, dict):
         for k, v in report.data.items():
-            ws.cell(row=row, column=1, value=str(k))
-            ws.cell(row=row, column=2, value=str(v) if not isinstance(v, (dict, list)) else str(v))
+            ws.cell(row=row, column=1, value=_xlsx_cell_str(k))
+            ws.cell(row=row, column=2, value=_xlsx_cell_str(
+                v if not isinstance(v, (dict, list)) else str(v)
+            ))
             row += 1
     elif report.data and isinstance(report.data, list):
         for i, item in enumerate(report.data[:500]):
             if isinstance(item, dict):
                 for k, v in item.items():
-                    ws.cell(row=row, column=1, value=str(k))
-                    ws.cell(row=row, column=2, value=str(v)[:32767])
+                    ws.cell(row=row, column=1, value=_xlsx_cell_str(k))
+                    ws.cell(row=row, column=2, value=_xlsx_cell_str(v))
                     row += 1
                 row += 1
             else:
-                ws.cell(row=row, column=1, value=str(item)[:32767])
+                ws.cell(row=row, column=1, value=_xlsx_cell_str(item))
                 row += 1
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
-    name = f"report_{report.id}_{report.title[:30].replace(' ', '_')}.xlsx"
+    raw = (report.title or '')[:60]
+    slug = re.sub(r'[^\w\-]+', '_', raw, flags=re.UNICODE).strip('_') or 'report'
+    slug_ascii = slug.encode('ascii', 'ignore').decode().strip('_') or f'id{report.id}'
+    name = f'report_{report.id}_{slug_ascii}.xlsx'
     return (
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         name,

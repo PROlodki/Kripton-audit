@@ -19,5 +19,11 @@ router.register(r'personal-data', PersonalDataViewSet, basename='personal-data')
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 
 urlpatterns = [
+    # Явный маршрут: экспорт одного отчёта (избегает путаницы с list-action и гарантирует 200 на нужный URL).
+    path(
+        'reports/<int:pk>/export/',
+        ReportViewSet.as_view({'get': 'export'}),
+        name='report-single-export',
+    ),
     path('', include(router.urls)),
 ]

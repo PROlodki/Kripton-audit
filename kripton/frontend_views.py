@@ -31,7 +31,7 @@ class FrontendActionsAPIView(APIView):
                 'detail': f'{api_base}/reports/reports/{{id}}/',
                 'submit': f'{api_base}/reports/reports/{{id}}/submit/',
                 'approve': f'{api_base}/reports/reports/{{id}}/approve/',
-                'export': f'{api_base}/reports/reports/{{id}}/export/?format=xlsx',
+                'export': f'{api_base}/reports/reports/{{id}}/export/?export_format=xlsx',
                 'validate': f'{api_base}/reports/reports/{{id}}/validate/',
                 'history': f'{api_base}/reports/reports/{{id}}/history/',
                 'check_access': f'{api_base}/reports/reports/{{id}}/check-access/',
@@ -44,7 +44,7 @@ class FrontendActionsAPIView(APIView):
                 'my_departments': f'{api_base}/reports/report-requests/my-departments/',
                 'approve': f'{api_base}/reports/report-requests/{{id}}/approve/',
                 'reject': f'{api_base}/reports/report-requests/{{id}}/reject/',
-                'export': f'{api_base}/reports/report-requests/export/?format=csv',
+                'export': f'{api_base}/reports/report-requests/export/?export_format=csv',
             },
             'dashboard': {
                 'summary': f'{api_base}/reports/dashboard/summary/',

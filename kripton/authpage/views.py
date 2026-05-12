@@ -216,3 +216,21 @@ class AdminUserDetailAPIView(APIView):
                 if rt:
                     rt.stakeholders.add(user)
         return self.get(request, pk)
+
+    def delete(self, request, pk):
+        from .models import User
+        from Reports.models import ReportType
+        user = User.objects.filter(pk=pk).first()
+        if not user:
+            return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'Нельзя удалить себя'}, status=status.HTTP_400_BAD_REQUEST)
+        if user.is_superuser:
+            return Response({'detail': 'Нельзя удалить суперпользователя'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        for rt in ReportType.objects.filter(stakeholders=user):
+            rt.stakeholders.remove(user)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

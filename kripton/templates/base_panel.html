@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Kripton Audit - Система отчётов{% endblock %}</title>
+    <title>{% block title %}Довод — Система отчётов{% endblock %}</title>
     <style>
         * {
             margin: 0;
@@ -389,7 +389,7 @@
 <body>
     <!-- Header -->
     <header class="header">
-        <div class="logo">{% block logo %}📊 Kripton Audit{% endblock %}</div>
+        <div class="logo">{% block logo %}📊 Довод{% endblock %}</div>
         <div class="user-info">
             <span id="userName">Загрузка...</span>
             <a href="/logout/" class="btn btn-danger" onclick="localStorage.removeItem('jwt')">Выход</a>
@@ -857,6 +857,12 @@
                         ${!r.submitted_at ? `<button class="btn btn-sm btn-primary" onclick="submitReport(${r.id})">Отправить</button>` : ''}
                         ${(currentUser && currentUser.role === 'admin') && r.submitted_at && !r.approved_at ? `<button class="btn btn-sm btn-primary" onclick="approveReport(${r.id})">Утвердить</button>` : ''}
                         <button class="btn btn-sm" onclick="exportReport(${r.id}, 'xlsx')">Экспорт</button>
+                        ${!r.approved_at ? `
+                        <input type="file" id="reportFileXlsx_${r.id}" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="uploadReportFile(${r.id}, this)">
+                        <input type="file" id="reportFileDocx_${r.id}" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" onchange="uploadReportFile(${r.id}, this)">
+                        <button type="button" class="btn btn-sm" onclick="document.getElementById('reportFileXlsx_${r.id}').click()">Загрузить Excel</button>
+                        <button type="button" class="btn btn-sm" onclick="document.getElementById('reportFileDocx_${r.id}').click()">Загрузить Word</button>
+                        ` : ''}
                         ${!r.approved_at ? `<button class="btn btn-sm btn-danger" onclick="if(confirm('Удалить отчёт?')) deleteReport(${r.id})">Удалить</button>` : ''}
                     </td>
                 </tr>
@@ -1646,15 +1652,74 @@
             }
         }
 
+        function getAuthHeadersMultipart() {
+            const headers = {};
+            const token = localStorage.getItem('jwt') || (document.cookie.match(/jwt=([^;]+)/) || [])[1];
+            if (token) headers['Authorization'] = 'Token ' + token;
+            return headers;
+        }
+
+        async function uploadReportFile(reportId, input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                const res = await fetch(`${API_BASE}/reports/reports/${reportId}/upload-file/`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeadersMultipart(),
+                    body: fd
+                });
+                if (res.ok) {
+                    showToast('Файл загружен', 'success');
+                    loadReports();
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    showToast(d.error || 'Ошибка загрузки', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка сети', 'error');
+            }
+            input.value = '';
+        }
+
         async function exportReport(id, format) {
             try {
-                const res = await fetch(`${API_BASE}/reports/reports/${id}/export/?format=${format}`, {
+                const res = await fetch(`${API_BASE}/reports/reports/${id}/export/?export_format=${format}`, {
                     credentials: 'include',
-                    headers: getAuthHeaders()
+                    headers: {
+                        ...getAuthHeadersMultipart(),
+                        Accept: '*/*'
+                    }
                 });
-                if (!res.ok) { showToast('Ошибка экспорта', 'error'); return; }
+                if (!res.ok) {
+                    const errText = await res.text();
+                    let msg = 'Ошибка экспорта';
+                    try {
+                        const j = JSON.parse(errText);
+                        if (j.error) msg = j.error;
+                        else if (j.detail) msg = typeof j.detail === 'string' ? j.detail : msg;
+                    } catch (_) { /* не JSON */ }
+                    showToast(msg, 'error');
+                    return;
+                }
+                const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+                if (ct.includes('application/json')) {
+                    const errText = await res.text();
+                    let msg = 'Ошибка экспорта';
+                    try {
+                        const j = JSON.parse(errText);
+                        if (j.error) msg = j.error;
+                    } catch (_) { /* */ }
+                    showToast(msg, 'error');
+                    return;
+                }
                 const blob = await res.blob();
-                const name = res.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] || `report_${id}.${format}`;
+                const cd = res.headers.get('Content-Disposition');
+                const m = cd && (cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="([^"]+)"/i) || cd.match(/filename=([^;]+)/i));
+                let name = (m && m[1].trim().replace(/^"|"$/g, '')) || `report_${id}.${format}`;
+                try { name = decodeURIComponent(name); } catch (_) { /* уже обычная строка */ }
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = name;
@@ -1682,7 +1747,7 @@
                         ${!r.submitted_at ? `<button class="btn btn-primary" onclick="submitReport(${r.id}); document.querySelector('.modal')?.remove();">Отправить</button>` : ''}
                         ${r.submitted_at && !r.approved_at ? `<button class="btn btn-primary" onclick="approveReport(${r.id}); document.querySelector('.modal')?.remove();">Утвердить</button>` : ''}
                         <button class="btn" onclick="exportReport(${r.id}, 'xlsx')">Скачать Excel</button>
-                        <button class="btn" onclick="exportReport(${r.id}, 'pdf')">Скачать PDF</button>
+                        <button class="btn" onclick="exportReport(${r.id}, 'docx')">Скачать Word</button>
                     </div>
                 `);
             } catch (e) {

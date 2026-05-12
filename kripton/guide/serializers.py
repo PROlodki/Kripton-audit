@@ -12,6 +12,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
             'head_of_department',
             'is_active',
             'description',
+            'employees'
             'created_at',
         ]
 
